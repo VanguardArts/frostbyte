@@ -24,7 +24,7 @@ from collections import deque
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, QTimer, QSettings, pyqtSignal, QObject
 from PyQt6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QFont
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
@@ -37,43 +37,83 @@ SINGLE_INSTANCE_NAME = f"frostbyte-gui-{os.getuid()}"
 
 import frostbyte_common as fb
 
-ACCENT = "#5ecbff"
-DANGER = "#ff5964"
-BG = "#0b0e14"
-CARD = "#151a23"
-CARD_EDGE = "#232a36"
-TEXT = "#d7dde6"
-MUTED = "#7d8794"
+# --- Themes (dark mode only) -------------------------------------------------
+# accent = primary highlight (CPU fan, sliders, checked buttons)
+# accent2 = secondary (GPU fan / graph), danger = warnings + MAX button
+THEMES = {
+    "glacier": {
+        "label": "Glacier (default)",
+        "accent": "#5ecbff", "accent2": "#9dff70",
+        "bg": "#0b0e14", "card": "#151a23", "edge": "#232a36",
+        "text": "#d7dde6", "muted": "#7d8794", "danger": "#ff5964",
+    },
+    "nitro": {
+        "label": "Nitro Red",
+        "accent": "#ff3b47", "accent2": "#ffb84d",
+        "bg": "#100a0c", "card": "#1b1114", "edge": "#331920",
+        "text": "#eeddde", "muted": "#947279", "danger": "#ff8a5c",
+    },
+    "predator": {
+        "label": "Predator Teal",
+        "accent": "#2fd4c4", "accent2": "#ffd166",
+        "bg": "#090f13", "card": "#101a20", "edge": "#1e3038",
+        "text": "#d8e6e8", "muted": "#6d8b91", "danger": "#ff5964",
+    },
+    "volt": {
+        "label": "Volt Green",
+        "accent": "#9ee33c", "accent2": "#5ecbff",
+        "bg": "#0b0f08", "card": "#131a10", "edge": "#263317",
+        "text": "#e4ecd8", "muted": "#81937a", "danger": "#ff5964",
+    },
+    "ultraviolet": {
+        "label": "Ultraviolet",
+        "accent": "#a78bfa", "accent2": "#f472b6",
+        "bg": "#0d0a14", "card": "#171126", "edge": "#2b2142",
+        "text": "#e5dff0", "muted": "#897ea6", "danger": "#ff5964",
+    },
+    "ember": {
+        "label": "Ember",
+        "accent": "#ffb02e", "accent2": "#ff6b4a",
+        "bg": "#110d08", "card": "#1c1510", "edge": "#33261a",
+        "text": "#ede2d2", "muted": "#9a8874", "danger": "#ff5964",
+    },
+}
+DEFAULT_THEME = "glacier"
 
-STYLESHEET = f"""
-QMainWindow, QWidget {{ background: {BG}; color: {TEXT};
+
+def make_stylesheet(theme):
+    """Build the full QSS stylesheet for a theme dict."""
+    return f"""
+QMainWindow, QWidget {{ background: {theme['bg']}; color: {theme['text']};
     font-family: 'Noto Sans', sans-serif; }}
-QFrame#card {{ background: {CARD}; border: 1px solid {CARD_EDGE};
+QFrame#card {{ background: {theme['card']}; border: 1px solid {theme['edge']};
     border-radius: 12px; }}
 QLabel#big {{ font-size: 30px; font-weight: 700; }}
-QLabel#muted {{ color: {MUTED}; }}
+QLabel#muted {{ color: {theme['muted']}; }}
 QLabel#title {{ font-size: 15px; font-weight: 600; letter-spacing: 1px; }}
-QPushButton {{ background: #1c2230; border: 1px solid {CARD_EDGE};
-    border-radius: 8px; padding: 8px 14px; color: {TEXT}; }}
-QPushButton:hover {{ border-color: {ACCENT}; }}
-QPushButton:checked {{ background: {ACCENT}; color: #04121c;
+QPushButton {{ background: #1c2230; border: 1px solid {theme['edge']};
+    border-radius: 8px; padding: 8px 14px; color: {theme['text']}; }}
+QPushButton:hover {{ border-color: {theme['accent']}; }}
+QPushButton:checked {{ background: {theme['accent']}; color: #04121c;
     font-weight: 700; }}
-QPushButton#danger:checked {{ background: {DANGER}; color: white; }}
+QPushButton#danger:checked {{ background: {theme['danger']}; color: white; }}
 QSlider::groove:horizontal {{ height: 6px; background: #232a36;
     border-radius: 3px; }}
 QSlider::handle:horizontal {{ width: 18px; height: 18px; margin: -7px 0;
-    border-radius: 9px; background: {ACCENT}; }}
-QSlider::sub-page:horizontal {{ background: {ACCENT}; border-radius: 3px; }}
+    border-radius: 9px; background: {theme['accent']}; }}
+QSlider::sub-page:horizontal {{ background: {theme['accent']}; border-radius: 3px; }}
 QSlider:disabled::handle:horizontal {{ background: #3a4250; }}
-QTableWidget {{ background: {CARD}; gridline-color: {CARD_EDGE};
-    border: 1px solid {CARD_EDGE}; border-radius: 8px; }}
-QHeaderView::section {{ background: #1c2230; color: {MUTED};
+QTableWidget {{ background: {theme['card']}; gridline-color: {theme['edge']};
+    border: 1px solid {theme['edge']}; border-radius: 8px; }}
+QHeaderView::section {{ background: #1c2230; color: {theme['muted']};
     border: none; padding: 4px; }}
 QCheckBox {{ spacing: 8px; }}
 QCheckBox::indicator {{ width: 18px; height: 18px; }}
-QSpinBox {{ background: #1c2230; border: 1px solid {CARD_EDGE};
+QSpinBox {{ background: #1c2230; border: 1px solid {theme['edge']};
     border-radius: 6px; padding: 4px; }}
 """
+
+STYLESHEET = make_stylesheet(THEMES[DEFAULT_THEME])
 
 
 class DaemonBridge(QObject):
@@ -102,11 +142,20 @@ class DaemonBridge(QObject):
 class Sparkline(QWidget):
     """Minimal 60s history graph for one or two series (0-100 scale)."""
 
-    def __init__(self, colors, parent=None):
+    def __init__(self, colors, theme=None, parent=None):
         super().__init__(parent)
         self.colors = colors
+        theme = theme or THEMES[DEFAULT_THEME]
+        self.card = theme["card"]
+        self.edge = theme["edge"]
         self.series = [deque(maxlen=60) for _ in colors]
         self.setMinimumHeight(90)
+
+    def set_theme(self, theme):
+        self.colors = [theme["accent"], theme["accent2"]]
+        self.card = theme["card"]
+        self.edge = theme["edge"]
+        self.update()
 
     def push(self, *values):
         for series, val in zip(self.series, values):
@@ -116,8 +165,8 @@ class Sparkline(QWidget):
     def paintEvent(self, _event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.fillRect(self.rect(), QColor(CARD))
-        p.setPen(QPen(QColor(CARD_EDGE), 1))
+        p.fillRect(self.rect(), QColor(self.card))
+        p.setPen(QPen(QColor(self.edge), 1))
         for frac in (0.25, 0.5, 0.75):
             y = int(self.height() * frac)
             p.drawLine(0, y, self.width(), y)
@@ -149,10 +198,10 @@ class FanCard(QFrame):
         self.setObjectName("card")
         self.accent = accent
         lay = QVBoxLayout(self)
-        head = QLabel(title)
-        head.setObjectName("title")
-        head.setStyleSheet(f"color: {accent};")
-        lay.addWidget(head)
+        self.head = QLabel(title)
+        self.head.setObjectName("title")
+        lay.addWidget(self.head)
+        self.set_accent(accent)
 
         row = QHBoxLayout()
         self.temp_lbl = QLabel("--.-°C")
@@ -178,6 +227,10 @@ class FanCard(QFrame):
         cap = QLabel("0% = firmware auto")
         cap.setObjectName("muted")
         lay.addWidget(cap)
+
+    def set_accent(self, accent):
+        self.accent = accent
+        self.head.setStyleSheet(f"color: {accent};")
 
     def update(self, temp, rpm, setting, manual_enabled):
         self.temp_lbl.setText("--.-°C" if temp is None else f"{temp:.1f}°C")
@@ -237,8 +290,10 @@ class CurveEditor(QFrame):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, theme=None):
         super().__init__()
+        self.theme_key = theme if theme in THEMES else DEFAULT_THEME
+        self.theme = THEMES[self.theme_key]
         self.setWindowTitle("FrostByte")
         self.resize(760, 640)
         self.bridge = DaemonBridge()
@@ -249,6 +304,23 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._build_tray()
         self._start_instance_server()
+        self.theme_btns[self.theme_key].setChecked(True)
+
+    def apply_theme(self, key):
+        """Switch themes live and remember the choice per user."""
+        if key not in THEMES:
+            return
+        self.theme_key = key
+        self.theme = THEMES[key]
+        QApplication.instance().setStyleSheet(make_stylesheet(self.theme))
+        self.logo.setStyleSheet(
+            f"font-size: 22px; font-weight: 800; color: {self.theme['accent']};")
+        self.cpu_card.set_accent(self.theme["accent"])
+        self.gpu_card.set_accent(self.theme["accent2"])
+        self.graph.set_theme(self.theme)
+        for k, b in self.theme_btns.items():
+            b.setChecked(k == key)
+        QSettings("FrostByte", "FrostByte").setValue("theme", key)
 
     # ---------------------------------------------- single instance / toggle
 
@@ -291,10 +363,26 @@ class MainWindow(QMainWindow):
 
         # Header
         head = QHBoxLayout()
-        logo = QLabel("❄ FrostByte")
-        logo.setStyleSheet(f"font-size: 22px; font-weight: 800; color: {ACCENT};")
-        head.addWidget(logo)
+        self.logo = QLabel("❄ FrostByte")
+        self.logo.setStyleSheet(f"font-size: 22px; font-weight: 800; color: {self.theme['accent']};")
+        head.addWidget(self.logo)
         head.addStretch(1)
+        head.addWidget(QLabel("Theme:"))
+        self.theme_btns = {}
+        for key, t in THEMES.items():
+            sw = QPushButton()
+            sw.setCheckable(True)
+            sw.setToolTip(t["label"])
+            sw.setFixedSize(30, 30)
+            sw.setStyleSheet(
+                "QPushButton { border-radius: 15px; border: 2px solid #2a3140;"
+                f" background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
+                f" stop:0 {t['accent']}, stop:1 {t['accent2']}); }}"
+                "QPushButton:checked { border: 2px solid #ffffff; }")
+            sw.clicked.connect(lambda _c, k=key: self.apply_theme(k))
+            self.theme_btns[key] = sw
+            head.addWidget(sw)
+        head.addSpacing(12)
         self.power_lbl = QLabel("")
         self.power_lbl.setObjectName("muted")
         head.addWidget(self.power_lbl)
@@ -333,8 +421,8 @@ class MainWindow(QMainWindow):
 
         # Fan cards
         cards = QHBoxLayout()
-        self.cpu_card = FanCard("CPU FAN", ACCENT)
-        self.gpu_card = FanCard("GPU FAN", "#9dff70")
+        self.cpu_card = FanCard("CPU FAN", self.theme["accent"])
+        self.gpu_card = FanCard("GPU FAN", self.theme["accent2"])
         self.cpu_card.sliderSet.connect(
             lambda v: self._slider_changed("cpu", v))
         self.gpu_card.sliderSet.connect(
@@ -348,7 +436,8 @@ class MainWindow(QMainWindow):
         graph_card.setObjectName("card")
         gl = QVBoxLayout(graph_card)
         gl.addWidget(QLabel("Temperature history (60s, 0–100°C)"))
-        self.graph = Sparkline([ACCENT, "#9dff70"])
+        self.graph = Sparkline([self.theme["accent"], self.theme["accent2"]],
+                             theme=self.theme)
         gl.addWidget(self.graph)
         lay.addWidget(graph_card)
 
@@ -484,10 +573,13 @@ class MainWindow(QMainWindow):
             self._syncing = False
 
 
-def main():
+def main(theme=None):
     app = QApplication(sys.argv)
     app.setApplicationName("FrostByte")
-    app.setStyleSheet(STYLESHEET)
+    if theme is None:
+        theme = QSettings("FrostByte", "FrostByte").value(
+            "theme", DEFAULT_THEME)
+    app.setStyleSheet(make_stylesheet(THEMES.get(theme, THEMES[DEFAULT_THEME])))
     icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              "frostbyte.svg")
     if os.path.exists(icon_path):
@@ -504,7 +596,7 @@ def main():
         probe.disconnectFromServer()
         sys.exit(0)
 
-    win = MainWindow()
+    win = MainWindow(theme)
     win.show()
     sys.exit(app.exec())
 

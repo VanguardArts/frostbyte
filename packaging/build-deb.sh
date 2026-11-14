@@ -30,6 +30,7 @@ mkdir -p "$STAGE/DEBIAN" \
 for f in control postinst prerm postrm; do
     install -Dm644 "$here/packaging/debian/$f" "$STAGE/DEBIAN/$f"
 done
+sed -i "s/^Version: .*/Version: ${VER}-${REL}/" "$STAGE/DEBIAN/control"
 chmod 755 "$STAGE/DEBIAN/postinst" "$STAGE/DEBIAN/prerm" "$STAGE/DEBIAN/postrm"
 
 # --- application ------------------------------------------------------------

@@ -1,7 +1,7 @@
 # ❄ FrostByte
 
 [![License: GPL v3+](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.1.0-brightgreen)](https://github.com/VanguardArts/frostbyte/releases)
+[![Release](https://img.shields.io/badge/release-v1.2.0-brightgreen)](https://github.com/VanguardArts/frostbyte/releases)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)](https://github.com/VanguardArts/frostbyte)
 [![Driver: DKMS](https://img.shields.io/badge/driver-DKMS-orange)](#how-it-works)
 
@@ -31,6 +31,8 @@ DKMS package that rebuilds itself on every kernel update.
 - 🔘 **NitroSense key support** — the dedicated **N** key toggles the FrostByte
   window, exactly like on Windows (works under X11 and Wayland, no desktop
   shortcut binding needed)
+- 🎨 **Six dark themes** — Glacier, Nitro Red, Predator Teal, Volt Green,
+  Ultraviolet, Ember — switchable live from the header swatches
 - 🔄 **Survives kernel updates** — DKMS rebuilds the driver automatically
 
 ## How it works
