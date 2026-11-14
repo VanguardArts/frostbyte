@@ -18,28 +18,35 @@
 #
 """FrostByte GUI - NitroSense-style dashboard for the FrostByte daemon."""
 
+import math
 import os
 import sys
 from collections import deque
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from PyQt6.QtCore import Qt, QTimer, QSettings, pyqtSignal, QObject
-from PyQt6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QFont
+from PyQt6.QtCore import (
+    QEasingCurve, QPointF, QPropertyAnimation, QRectF, QSettings, QSize, Qt,
+    QTimer, pyqtProperty, pyqtSignal, QObject,
+)
+from PyQt6.QtGui import (
+    QAction, QBrush, QColor, QFont, QIcon, QLinearGradient, QPainter,
+    QPainterPath, QPen, QPixmap, QPolygonF,
+)
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QFrame, QGridLayout, QHBoxLayout, QHeaderView,
-    QLabel, QMainWindow, QMessageBox, QPushButton, QSlider, QSpinBox,
-    QSystemTrayIcon, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QApplication, QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
+    QMainWindow, QMenu, QMessageBox, QPushButton, QSizePolicy, QSlider,
+    QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton,
+    QVBoxLayout, QWidget,
 )
-
-SINGLE_INSTANCE_NAME = f"frostbyte-gui-{os.getuid()}"
 
 import frostbyte_common as fb
 
+SINGLE_INSTANCE_NAME = f"frostbyte-gui-{os.getuid()}"
+
 # --- Themes (dark mode only) -------------------------------------------------
-# accent = primary highlight (CPU fan, sliders, checked buttons)
-# accent2 = secondary (GPU fan / graph), danger = warnings + MAX button
+# accent = primary highlight, accent2 = secondary (GPU), danger = warnings/MAX
 THEMES = {
     "glacier": {
         "label": "Glacier (default)",
@@ -80,40 +87,107 @@ THEMES = {
 }
 DEFAULT_THEME = "glacier"
 
+GAUGE_MAX_RPM = 7000.0
+AMBER = "#ffb84d"
 
-def make_stylesheet(theme):
+
+def _rgba(hexcolor, alpha):
+    h = hexcolor.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+def make_stylesheet(t):
     """Build the full QSS stylesheet for a theme dict."""
     return f"""
-QMainWindow, QWidget {{ background: {theme['bg']}; color: {theme['text']};
+QMainWindow, QWidget {{ background: {t['bg']}; color: {t['text']};
     font-family: 'Noto Sans', sans-serif; }}
-QFrame#card {{ background: {theme['card']}; border: 1px solid {theme['edge']};
+QFrame#card {{ background: {t['card']}; border: 1px solid {t['edge']};
     border-radius: 12px; }}
 QLabel#big {{ font-size: 30px; font-weight: 700; }}
-QLabel#muted {{ color: {theme['muted']}; }}
-QLabel#title {{ font-size: 15px; font-weight: 600; letter-spacing: 1px; }}
-QPushButton {{ background: #1c2230; border: 1px solid {theme['edge']};
-    border-radius: 8px; padding: 8px 14px; color: {theme['text']}; }}
-QPushButton:hover {{ border-color: {theme['accent']}; }}
-QPushButton:checked {{ background: {theme['accent']}; color: #04121c;
+QLabel#muted {{ color: {t['muted']}; }}
+QLabel#title {{ font-size: 13px; font-weight: 700; letter-spacing: 2px;
+    color: {t['muted']}; }}
+QPushButton {{ background: #1c2230; border: 1px solid {t['edge']};
+    border-radius: 8px; padding: 8px 14px; color: {t['text']}; }}
+QPushButton:hover {{ border-color: {t['accent']}; }}
+QPushButton:checked {{ background: {t['accent']}; color: #04121c;
     font-weight: 700; }}
-QPushButton#danger:checked {{ background: {theme['danger']}; color: white; }}
+QPushButton#tile {{ background: {_rgba(t['card'], 220)};
+    border: 1px solid {t['edge']}; border-radius: 10px;
+    padding: 8px 14px 8px 16px; font-weight: 600; text-align: left; }}
+QPushButton#tile:hover {{ border-color: {t['accent']}; }}
+QPushButton#tile:checked {{ border: 2px solid {t['accent']};
+    background: {_rgba(t['accent'], 34)}; color: {t['text']}; }}
+QPushButton#danger:checked {{ background: {t['danger']}; color: white;
+    border-color: {t['danger']}; }}
 QSlider::groove:horizontal {{ height: 6px; background: #232a36;
     border-radius: 3px; }}
 QSlider::handle:horizontal {{ width: 18px; height: 18px; margin: -7px 0;
-    border-radius: 9px; background: {theme['accent']}; }}
-QSlider::sub-page:horizontal {{ background: {theme['accent']}; border-radius: 3px; }}
+    border-radius: 9px; background: {t['accent']}; }}
+QSlider::sub-page:horizontal {{ background: {t['accent']}; border-radius: 3px; }}
 QSlider:disabled::handle:horizontal {{ background: #3a4250; }}
-QTableWidget {{ background: {theme['card']}; gridline-color: {theme['edge']};
-    border: 1px solid {theme['edge']}; border-radius: 8px; }}
-QHeaderView::section {{ background: #1c2230; color: {theme['muted']};
+QTableWidget {{ background: {t['card']}; gridline-color: {t['edge']};
+    border: 1px solid {t['edge']}; border-radius: 8px; }}
+QHeaderView::section {{ background: #1c2230; color: {t['muted']};
     border: none; padding: 4px; }}
 QCheckBox {{ spacing: 8px; }}
 QCheckBox::indicator {{ width: 18px; height: 18px; }}
-QSpinBox {{ background: #1c2230; border: 1px solid {theme['edge']};
+QSpinBox {{ background: #1c2230; border: 1px solid {t['edge']};
     border-radius: 6px; padding: 4px; }}
+QToolButton#adv {{ color: {t['muted']}; border: none; font-weight: 700;
+    letter-spacing: 1px; padding: 8px 4px; text-align: left; }}
+QToolButton#adv:hover {{ color: {t['accent']}; }}
 """
 
 STYLESHEET = make_stylesheet(THEMES[DEFAULT_THEME])
+
+
+def temp_color(t, theme):
+    if t is None:
+        return theme["muted"]
+    if t >= 85:
+        return theme["danger"]
+    if t >= 72:
+        return AMBER
+    return theme["text"]
+
+
+def icon_pixmap(kind, color, size=26):
+    """Draw a small line icon (no font/emoji dependency)."""
+    dpr = 2
+    pm = QPixmap(size * dpr, size * dpr)
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(QColor(color), 2.0, Qt.PenStyle.SolidLine,
+               Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+    p.setPen(pen)
+    if kind == "auto":           # two opposing arrows
+        p.drawLine(6, 10, 19, 10)
+        p.drawLine(19, 10, 15, 7)
+        p.drawLine(19, 10, 15, 13)
+        p.drawLine(20, 16, 7, 16)
+        p.drawLine(7, 16, 11, 13)
+        p.drawLine(7, 16, 11, 19)
+    elif kind == "curve":        # rising polyline with end dots
+        p.drawPolyline([QPointF(5, 19), QPointF(11, 15),
+                        QPointF(16, 10), QPointF(21, 6)])
+        p.setBrush(QColor(color))
+        p.drawEllipse(QPointF(5, 19), 2.2, 2.2)
+        p.drawEllipse(QPointF(21, 6), 2.2, 2.2)
+    elif kind == "manual":       # three faders
+        for y, kx in ((7, 10), (13, 16), (19, 9)):
+            p.drawLine(5, y, 21, y)
+            p.setBrush(QColor(color))
+            p.drawEllipse(QPointF(kx, y), 2.6, 2.6)
+    elif kind == "max":          # triple chevron up
+        for y in (18, 12, 6):
+            p.drawPolyline([QPointF(7, y), QPointF(13, y - 3),
+                            QPointF(19, y)])
+    p.end()
+    return QIcon(pm)
 
 
 class DaemonBridge(QObject):
@@ -139,8 +213,154 @@ class DaemonBridge(QObject):
             self.lost.emit()
 
 
+class AngledFrame(QFrame):
+    """Panel with sci-fi cut corners (top-right + bottom-left)."""
+
+    def __init__(self, theme, cut=14, parent=None):
+        super().__init__(parent)
+        self.theme = theme
+        self.cut = cut
+
+    def set_theme(self, theme):
+        self.theme = theme
+        self.update()
+
+    def paintEvent(self, _event):
+        t = self.theme
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = self.rect().adjusted(1, 1, -2, -2)
+        c = self.cut
+        path = QPainterPath()
+        path.moveTo(r.left(), r.top())
+        path.lineTo(r.right() - c, r.top())
+        path.lineTo(r.right(), r.top() + c)
+        path.lineTo(r.right(), r.bottom())
+        path.lineTo(r.left() + c, r.bottom())
+        path.lineTo(r.left(), r.bottom() - c)
+        path.closeSubpath()
+        p.fillPath(path, QColor(t["card"]))
+        p.setPen(QPen(QColor(t["edge"]), 1.5))
+        p.drawPath(path)
+        # accent notch on the top edge
+        p.setPen(QPen(QColor(t["accent"]), 2.5))
+        p.drawLine(r.left() + 14, r.top() + 1, r.left() + 52, r.top() + 1)
+        p.end()
+
+
+class GaugeWidget(QWidget):
+    """NitroSense-style circular gauge: tick ring + arc + big RPM readout."""
+
+    def __init__(self, title, theme, parent=None):
+        super().__init__(parent)
+        self.title = title
+        self.theme = theme
+        self._val = 0.0              # 0.0 .. 1.0, animated
+        self.rpm = None
+        self.temp = None
+        self.setting = None
+        self.anim = QPropertyAnimation(self, b"displayValue", self)
+        self.anim.setDuration(650)
+        self.anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self.setMinimumSize(240, 260)
+
+    def _get(self):
+        return self._val
+
+    def _set(self, v):
+        self._val = v
+        self.update()
+
+    displayValue = pyqtProperty(float, fget=_get, fset=_set)
+
+    def set_theme(self, theme):
+        self.theme = theme
+        self.update()
+
+    def set_state(self, rpm, temp, setting):
+        if rpm is not None:
+            frac = rpm / GAUGE_MAX_RPM
+        else:
+            frac = (setting or 0) / 100.0
+        self.rpm, self.temp, self.setting = rpm, temp, setting
+        self.anim.stop()
+        self.anim.setStartValue(self._val)
+        self.anim.setEndValue(max(0.0, min(1.0, frac)))
+        self.anim.start()
+
+    def paintEvent(self, _event):
+        t = self.theme
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        side = min(self.width(), self.height())
+        cx, cy = self.width() / 2.0, self.height() / 2.0 + 6
+        radius = side / 2.0 - 22
+        ticks = 48
+
+        # tick ring
+        for i in range(ticks):
+            deg = 225.0 - i * (270.0 / (ticks - 1))
+            a = math.radians(deg)
+            lit = (i / (ticks - 1)) <= self._val
+            arc_col = t["danger"] if self._val > 0.85 else t["accent"]
+            p.setPen(QPen(QColor(arc_col if lit else t["edge"]),
+                          3.0 if lit else 2.0))
+            x1 = cx + (radius - 9) * math.cos(a)
+            y1 = cy - (radius - 9) * math.sin(a)
+            x2 = cx + radius * math.cos(a)
+            y2 = cy - radius * math.sin(a)
+            p.drawLine(QPointF(x1, y1), QPointF(x2, y2))
+
+        # value arc
+        if self._val > 0.004:
+            ar = radius - 18
+            arc_col = t["danger"] if self._val > 0.85 else t["accent"]
+            p.setPen(QPen(QColor(arc_col), 5.0, Qt.PenStyle.SolidLine,
+                          Qt.PenCapStyle.RoundCap))
+            p.drawArc(QRectF(cx - ar, cy - ar, 2 * ar, 2 * ar),
+                      225 * 16, int(-self._val * 270 * 16))
+
+        # readouts
+        big = "--" if self.rpm is None else str(self.rpm)
+        f = QFont("Noto Sans", int(radius * 0.30), QFont.Weight.Bold)
+        p.setFont(f)
+        p.setPen(QColor(t["text"]))
+        p.drawText(QRectF(cx - radius, cy - radius * 0.42,
+                          2 * radius, radius * 0.45),
+                   Qt.AlignmentFlag.AlignHCenter, big)
+
+        p.setFont(QFont("Noto Sans", int(radius * 0.11)))
+        p.setPen(QColor(t["muted"]))
+        p.drawText(QRectF(cx - radius, cy - radius * 0.02,
+                          2 * radius, radius * 0.22),
+                   Qt.AlignmentFlag.AlignHCenter, "RPM")
+
+        temp = self.temp
+        tcol = temp_color(temp, t)
+        p.setFont(QFont("Noto Sans", int(radius * 0.13), QFont.Weight.Bold))
+        p.setPen(QColor(tcol))
+        tstr = "--.-\N{DEGREE SIGN}C" if temp is None else f"{temp:.1f}\N{DEGREE SIGN}C"
+        p.drawText(QRectF(cx - radius, cy + radius * 0.18,
+                          2 * radius, radius * 0.24),
+                   Qt.AlignmentFlag.AlignHCenter, tstr)
+
+        mode = "AUTO" if self.setting in (None, 0) else f"SET {self.setting}%"
+        p.setFont(QFont("Noto Sans", int(radius * 0.085)))
+        p.setPen(QColor(t["muted"]))
+        p.drawText(QRectF(cx - radius, cy + radius * 0.44,
+                          2 * radius, radius * 0.2),
+                   Qt.AlignmentFlag.AlignHCenter, mode)
+
+        # title under the dial
+        p.setFont(QFont("Noto Sans", 12, QFont.Weight.Bold))
+        p.setPen(QColor(t["muted"]))
+        p.drawText(QRectF(0, self.height() - 24, self.width(), 20),
+                   Qt.AlignmentFlag.AlignHCenter, self.title)
+        p.end()
+
+
 class Sparkline(QWidget):
-    """Minimal 60s history graph for one or two series (0-100 scale)."""
+    """60s history graph for one or two series, auto-scaled to the data."""
 
     def __init__(self, colors, theme=None, parent=None):
         super().__init__(parent)
@@ -148,13 +368,17 @@ class Sparkline(QWidget):
         theme = theme or THEMES[DEFAULT_THEME]
         self.card = theme["card"]
         self.edge = theme["edge"]
+        self.muted = theme["muted"]
         self.series = [deque(maxlen=60) for _ in colors]
-        self.setMinimumHeight(90)
+        self.setMinimumHeight(110)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding,
+                           QSizePolicy.Policy.Expanding)
 
     def set_theme(self, theme):
         self.colors = [theme["accent"], theme["accent2"]]
         self.card = theme["card"]
         self.edge = theme["edge"]
+        self.muted = theme["muted"]
         self.update()
 
     def push(self, *values):
@@ -162,84 +386,148 @@ class Sparkline(QWidget):
             series.append(val)
         self.update()
 
+    def _scale(self):
+        vals = [v for series in self.series for v in series if v is not None]
+        if not vals:
+            return 20.0, 90.0
+        lo, hi = min(vals) - 4.0, max(vals) + 4.0
+        if hi - lo < 12.0:
+            pad = (12.0 - (hi - lo)) / 2.0
+            lo, hi = lo - pad, hi + pad
+        return max(0.0, lo), min(110.0, hi)
+
     def paintEvent(self, _event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
         p.fillRect(self.rect(), QColor(self.card))
+        lo, hi = self._scale()
+
+        def ymap(v):
+            frac = (max(lo, min(hi, v)) - lo) / (hi - lo)
+            return h - 6 - frac * (h - 14)
+
+        # gridlines at quartiles + tiny scale bounds on the left
         p.setPen(QPen(QColor(self.edge), 1))
         for frac in (0.25, 0.5, 0.75):
-            y = int(self.height() * frac)
-            p.drawLine(0, y, self.width(), y)
+            y = int(6 + frac * (h - 14))
+            p.drawLine(0, y, w, y)
+        p.setFont(QFont("Noto Sans", 8))
+        p.setPen(QColor(self.muted))
+        p.drawText(QRectF(6, 4, 70, 12), Qt.AlignmentFlag.AlignLeft,
+                   f"{hi:.0f}\N{DEGREE SIGN}C")
+        p.drawText(QRectF(6, h - 16, 70, 12), Qt.AlignmentFlag.AlignLeft,
+                   f"{lo:.0f}\N{DEGREE SIGN}C")
+
+        # series: soft gradient fill under a 2px line
+        step = w / 59.0
         for series, color in zip(self.series, self.colors):
-            if len(series) < 2:
-                continue
-            p.setPen(QPen(QColor(color), 2))
-            w, h = self.width(), self.height()
-            step = w / 59.0
-            prev = None
+            segments, cur = [], []
             for i, val in enumerate(series):
                 if val is None:
-                    prev = None
+                    if cur:
+                        segments.append(cur)
+                        cur = []
                     continue
-                x = int(i * step)
-                y = int(h - (max(0, min(100, val)) / 100.0) * (h - 6) - 3)
-                if prev is not None:
-                    p.drawLine(prev[0], prev[1], x, y)
-                prev = (x, y)
+                cur.append(QPointF(i * step, ymap(val)))
+            if cur:
+                segments.append(cur)
+            for seg in segments:
+                if len(seg) < 2:
+                    continue
+                grad = QLinearGradient(0, 0, 0, h)
+                c = QColor(color)
+                c.setAlpha(42)
+                grad.setColorAt(0, c)
+                c.setAlpha(0)
+                grad.setColorAt(1, c)
+                poly = QPolygonF(seg + [QPointF(seg[-1].x(), h - 3),
+                                        QPointF(seg[0].x(), h - 3)])
+                p.setPen(Qt.PenStyle.NoPen)
+                p.setBrush(QBrush(grad))
+                p.drawPolygon(poly)
+                p.setBrush(Qt.BrushStyle.NoBrush)
+                p.setPen(QPen(QColor(color), 2))
+                path = QPainterPath(seg[0])
+                for pt in seg[1:]:
+                    path.lineTo(pt)
+                p.drawPath(path)
+        # per-series readouts: current value, min/max of the window
+        p.setFont(QFont("Noto Sans", 9, QFont.Weight.Bold))
+        off = 4
+        for series, color in zip(self.series, self.colors):
+            vals = [v for v in series if v is not None]
+            if not vals:
+                continue
+            p.setPen(QColor(color))
+            p.drawText(QRectF(self.width() - 150, off, 142, 14),
+                       Qt.AlignmentFlag.AlignRight,
+                       f"{vals[-1]:.0f}\N{DEGREE SIGN}C   "
+                       f"min {min(vals):.0f}  max {max(vals):.0f}")
+            off += 16
         p.end()
 
 
-class FanCard(QFrame):
-    """One fan's display + manual slider."""
-    sliderSet = pyqtSignal(int)
+class ModeTile(QPushButton):
+    """Checkable icon tile for a fan mode."""
 
-    def __init__(self, title, accent):
-        super().__init__()
-        self.setObjectName("card")
-        self.accent = accent
-        lay = QVBoxLayout(self)
+    def __init__(self, key, label, kind, theme, parent=None):
+        super().__init__(label, parent)
+        self.key = key
+        self.kind = kind
+        self.setObjectName("danger" if kind == "max" else "tile")
+        self.setCheckable(True)
+        self.setFixedHeight(52)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.set_theme(theme)
+
+    def set_theme(self, theme):
+        color = theme["danger"] if self.kind == "max" else theme["accent"]
+        self.setIcon(icon_pixmap(self.kind, color))
+        self.setIconSize(QSize(26, 26))
+
+
+class SliderRow(QWidget):
+    """One labeled fan slider (manual mode)."""
+    changed = pyqtSignal(int)
+
+    def __init__(self, title, theme, parent=None):
+        super().__init__(parent)
+        self.theme = theme
+        self.setFixedHeight(36)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
         self.head = QLabel(title)
-        self.head.setObjectName("title")
-        lay.addWidget(self.head)
-        self.set_accent(accent)
-
-        row = QHBoxLayout()
-        self.temp_lbl = QLabel("--.-°C")
-        self.temp_lbl.setObjectName("big")
-        self.rpm_lbl = QLabel("---- RPM")
-        self.rpm_lbl.setObjectName("muted")
-        self.set_lbl = QLabel("AUTO")
-        self.set_lbl.setObjectName("muted")
-        row.addWidget(self.temp_lbl)
-        row.addStretch(1)
-        rcol = QVBoxLayout()
-        rcol.addWidget(self.rpm_lbl, alignment=Qt.AlignmentFlag.AlignRight)
-        rcol.addWidget(self.set_lbl, alignment=Qt.AlignmentFlag.AlignRight)
-        row.addLayout(rcol)
-        lay.addLayout(row)
-
+        self.head.setFixedWidth(70)
+        self.head.setStyleSheet(f"color: {theme['accent']}; font-weight: 700;")
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.slider.setRange(0, 100)
-        self.slider.setValue(0)
+        self.slider.valueChanged.connect(self._lab)
         self.slider.sliderReleased.connect(
-            lambda: self.sliderSet.emit(self.slider.value()))
-        lay.addWidget(self.slider)
-        cap = QLabel("0% = firmware auto")
-        cap.setObjectName("muted")
-        lay.addWidget(cap)
+            lambda: self.changed.emit(self.slider.value()))
+        self.val = QLabel("AUTO")
+        self.val.setFixedWidth(46)
+        self.val.setAlignment(Qt.AlignmentFlag.AlignRight)
+        row.addWidget(self.head)
+        row.addWidget(self.slider, 1)
+        row.addWidget(self.val)
 
-    def set_accent(self, accent):
-        self.accent = accent
-        self.head.setStyleSheet(f"color: {accent};")
+    def _lab(self, v):
+        self.val.setText("AUTO" if v == 0 else f"{v}%")
 
-    def update(self, temp, rpm, setting, manual_enabled):
-        self.temp_lbl.setText("--.-°C" if temp is None else f"{temp:.1f}°C")
-        self.rpm_lbl.setText("---- RPM" if rpm is None else f"{rpm} RPM")
-        self.set_lbl.setText("AUTO" if setting in (None, 0)
-                             else f"set {setting}%")
-        self.slider.setEnabled(manual_enabled)
-        if manual_enabled and not self.slider.isSliderDown():
+    def set_theme(self, theme):
+        self.theme = theme
+        self.head.setStyleSheet(f"color: {theme['accent']}; font-weight: 700;")
+
+    def set_state(self, setting, enabled):
+        self.slider.setEnabled(enabled)
+        if enabled and not self.slider.isSliderDown():
+            self.slider.blockSignals(True)
             self.slider.setValue(setting or 0)
+            self.slider.blockSignals(False)
+            self._lab(setting or 0)
+        if not enabled:
+            self._lab(setting or 0)
 
 
 class CurveEditor(QFrame):
@@ -295,7 +583,8 @@ class MainWindow(QMainWindow):
         self.theme_key = theme if theme in THEMES else DEFAULT_THEME
         self.theme = THEMES[self.theme_key]
         self.setWindowTitle("FrostByte")
-        self.resize(760, 640)
+        self.resize(1000, 800)
+        self.setMinimumSize(920, 720)
         self.bridge = DaemonBridge()
         self.bridge.status.connect(self.on_status)
         self.bridge.lost.connect(self.on_lost)
@@ -305,22 +594,6 @@ class MainWindow(QMainWindow):
         self._build_tray()
         self._start_instance_server()
         self.theme_btns[self.theme_key].setChecked(True)
-
-    def apply_theme(self, key):
-        """Switch themes live and remember the choice per user."""
-        if key not in THEMES:
-            return
-        self.theme_key = key
-        self.theme = THEMES[key]
-        QApplication.instance().setStyleSheet(make_stylesheet(self.theme))
-        self.logo.setStyleSheet(
-            f"font-size: 22px; font-weight: 800; color: {self.theme['accent']};")
-        self.cpu_card.set_accent(self.theme["accent"])
-        self.gpu_card.set_accent(self.theme["accent2"])
-        self.graph.set_theme(self.theme)
-        for k, b in self.theme_btns.items():
-            b.setChecked(k == key)
-        QSettings("FrostByte", "FrostByte").setValue("theme", key)
 
     # ---------------------------------------------- single instance / toggle
 
@@ -354,9 +627,32 @@ class MainWindow(QMainWindow):
         else:
             event.accept()
 
+    def apply_theme(self, key):
+        """Switch themes live and remember the choice per user."""
+        if key not in THEMES:
+            return
+        self.theme_key = key
+        self.theme = THEMES[key]
+        QApplication.instance().setStyleSheet(make_stylesheet(self.theme))
+        self.logo.setStyleSheet(
+            f"font-size: 22px; font-weight: 800; color: {self.theme['accent']};")
+        for tile in self.mode_tiles.values():
+            tile.set_theme(self.theme)
+        self.cpu_gauge.set_theme(self.theme)
+        self.gpu_gauge.set_theme(self.theme)
+        for frame in self._frames:
+            frame.set_theme(self.theme)
+        self.cpu_row.set_theme(self.theme)
+        self.gpu_row.set_theme(self.theme)
+        self.graph.set_theme(self.theme)
+        for k, b in self.theme_btns.items():
+            b.setChecked(k == key)
+        QSettings("FrostByte", "FrostByte").setValue("theme", key)
+
     # ------------------------------------------------------------------ UI
 
     def _build_ui(self):
+        self._frames = []
         root = QWidget()
         self.setCentralWidget(root)
         lay = QVBoxLayout(root)
@@ -388,60 +684,100 @@ class MainWindow(QMainWindow):
         head.addWidget(self.power_lbl)
         lay.addLayout(head)
 
-        # Profiles
-        prof_row = QHBoxLayout()
-        prof_row.addWidget(QLabel("Thermal profile:"))
+        # Body: left control column + right gauges
+        body = QHBoxLayout()
+
+        left = QVBoxLayout()
+        cap = QLabel("FAN MODE")
+        cap.setObjectName("title")
+        left.addWidget(cap)
+        self.mode_tiles = {}
+        for key, label, kind in (("auto", "Auto", "auto"),
+                                 ("curve", "Curve", "curve"),
+                                 ("manual", "Manual", "manual"),
+                                 ("max", "MAX", "max")):
+            tile = ModeTile(key, label, kind, self.theme)
+            tile.clicked.connect(lambda _c, m=key: self._send(
+                {"cmd": "set_mode", "mode": m}))
+            self.mode_tiles[key] = tile
+            left.addWidget(tile)
+
+        left.addSpacing(14)
+        cap2 = QLabel("THERMAL PROFILE")
+        cap2.setObjectName("title")
+        left.addWidget(cap2)
         self.profile_btns = {}
         for name in ("quiet", "balanced", "performance"):
             b = QPushButton(name.capitalize())
+            b.setObjectName("tile")
             b.setCheckable(True)
             b.clicked.connect(lambda _c, n=name: self._send(
                 {"cmd": "set_profile", "profile": n}))
             self.profile_btns[name] = b
-            prof_row.addWidget(b)
-        prof_row.addStretch(1)
-        lay.addLayout(prof_row)
+            left.addWidget(b)
+        left.addStretch(1)
 
-        # Mode buttons
-        mode_row = QHBoxLayout()
-        mode_row.addWidget(QLabel("Fan mode:"))
-        self.mode_btns = {}
-        for mode, label in (("auto", "Auto"), ("curve", "Curve"),
-                            ("manual", "Manual"), ("max", "MAX")):
-            b = QPushButton(label)
-            b.setCheckable(True)
-            if mode == "max":
-                b.setObjectName("danger")
-            b.clicked.connect(lambda _c, m=mode: self._send(
-                {"cmd": "set_mode", "mode": m}))
-            self.mode_btns[mode] = b
-            mode_row.addWidget(b)
-        mode_row.addStretch(1)
-        lay.addLayout(mode_row)
+        leftw = QWidget()
+        leftw.setLayout(left)
+        leftw.setFixedWidth(210)
+        body.addWidget(leftw)
 
-        # Fan cards
-        cards = QHBoxLayout()
-        self.cpu_card = FanCard("CPU FAN", self.theme["accent"])
-        self.gpu_card = FanCard("GPU FAN", self.theme["accent2"])
-        self.cpu_card.sliderSet.connect(
-            lambda v: self._slider_changed("cpu", v))
-        self.gpu_card.sliderSet.connect(
-            lambda v: self._slider_changed("gpu", v))
-        cards.addWidget(self.cpu_card)
-        cards.addWidget(self.gpu_card)
-        lay.addLayout(cards)
+        right = QVBoxLayout()
+        gauges = QHBoxLayout()
+        self.cpu_gauge = GaugeWidget("CPU FAN", self.theme)
+        self.gpu_gauge = GaugeWidget("GPU FAN", self.theme)
+        for g in (self.cpu_gauge, self.gpu_gauge):
+            frame = AngledFrame(self.theme)
+            frame.setMinimumHeight(300)
+            frame.setMaximumHeight(320)
+            fl = QVBoxLayout(frame)
+            fl.setContentsMargins(12, 10, 12, 8)
+            fl.addWidget(g)
+            self._frames.append(frame)
+            gauges.addWidget(frame)
+        right.addLayout(gauges)
 
-        # Graph
-        graph_card = QFrame()
-        graph_card.setObjectName("card")
-        gl = QVBoxLayout(graph_card)
-        gl.addWidget(QLabel("Temperature history (60s, 0–100°C)"))
+        self.cpu_row = SliderRow("CPU", self.theme)
+        self.gpu_row = SliderRow("GPU", self.theme)
+        self.cpu_row.changed.connect(lambda v: self._slider_changed("cpu", v))
+        self.gpu_row.changed.connect(lambda v: self._slider_changed("gpu", v))
+        hint = QLabel("Manual mode: 0% = firmware auto")
+        hint.setObjectName("muted")
+        right.addSpacing(8)
+        right.addWidget(self.cpu_row)
+        right.addWidget(self.gpu_row)
+        right.addWidget(hint)
+        right.addStretch(1)
+        body.addLayout(right, 1)
+        lay.addLayout(body)
+
+        # Temperature history
+        gframe = AngledFrame(self.theme)
+        gl = QVBoxLayout(gframe)
+        gl.setContentsMargins(14, 10, 14, 12)
+        glab = QLabel("TEMPERATURE HISTORY — 60s")
+        glab.setObjectName("title")
+        gl.addWidget(glab)
         self.graph = Sparkline([self.theme["accent"], self.theme["accent2"]],
-                             theme=self.theme)
+                               theme=self.theme)
         gl.addWidget(self.graph)
-        lay.addWidget(graph_card)
+        self._frames.append(gframe)
+        lay.addWidget(gframe, 1)
 
-        # Curves
+        # Advanced (collapsible): curves + extras
+        self.adv_btn = QToolButton()
+        self.adv_btn.setObjectName("adv")
+        self.adv_btn.setText("▸  ADVANCED — fan curves, battery && extras")
+        self.adv_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.adv_btn.setSizePolicy(QSizePolicy.Policy.Expanding,
+                                   QSizePolicy.Policy.Fixed)
+        self.adv_btn.setCheckable(True)
+        self.adv_btn.toggled.connect(self._toggle_advanced)
+        lay.addWidget(self.adv_btn)
+
+        self.adv_panel = QFrame()
+        self.adv_panel.setObjectName("card")
+        adv = QVBoxLayout(self.adv_panel)
         curves = QHBoxLayout()
         self.cpu_curve = CurveEditor("cpu", "CPU CURVE")
         self.gpu_curve = CurveEditor("gpu", "GPU CURVE")
@@ -449,14 +785,11 @@ class MainWindow(QMainWindow):
         self.gpu_curve.applyRequested.connect(self._curve_apply)
         curves.addWidget(self.cpu_curve)
         curves.addWidget(self.gpu_curve)
-        lay.addLayout(curves)
-
-        # Toggles
+        adv.addLayout(curves)
         tog = QHBoxLayout()
         self.limiter_chk = QCheckBox("Battery limiter (charge to 80%)")
         self.limiter_chk.stateChanged.connect(
-            lambda st: self._send({"cmd": "set_limiter",
-                                   "enabled": bool(st)}))
+            lambda st: self._send({"cmd": "set_limiter", "enabled": bool(st)}))
         self.follow_chk = QCheckBox("Profile follows power source")
         self.follow_chk.setChecked(True)
         self.follow_chk.stateChanged.connect(
@@ -465,9 +798,16 @@ class MainWindow(QMainWindow):
         tog.addWidget(self.limiter_chk)
         tog.addWidget(self.follow_chk)
         tog.addStretch(1)
-        lay.addLayout(tog)
+        adv.addLayout(tog)
+        self.adv_panel.hide()
+        lay.addWidget(self.adv_panel)
 
         self.statusBar().showMessage("connecting to daemon…")
+
+    def _toggle_advanced(self, checked):
+        self.adv_panel.setVisible(checked)
+        self.adv_btn.setText(("▾  " if checked else "▸  ") +
+                             "ADVANCED — fan curves, battery && extras")
 
     def _build_tray(self):
         self.tray = QSystemTrayIcon(self)
@@ -475,8 +815,6 @@ class MainWindow(QMainWindow):
                                  "frostbyte.svg")
         self.tray.setIcon(QIcon(icon_path))
         self.tray.setToolTip("FrostByte")
-        menu = self.tray.contextMenu() or None
-        from PyQt6.QtWidgets import QMenu
         menu = QMenu()
         show = QAction("Open FrostByte", self)
         show.triggered.connect(self.showNormal)
@@ -541,15 +879,17 @@ class MainWindow(QMainWindow):
                 "🔌 AC power" if ac else "🔋 Battery" if ac is False else "")
 
             mode = s["mode"]
-            for m, b in self.mode_btns.items():
+            for m, b in self.mode_tiles.items():
                 b.setChecked(m == mode)
             for name, b in self.profile_btns.items():
                 b.setChecked(name == s["profile"])
 
             cpu, gpu = s["fan_setting"]
             manual = mode == "manual"
-            self.cpu_card.update(s["cpu_temp"], s["cpu_rpm"], cpu, manual)
-            self.gpu_card.update(s["gpu_temp"], s["gpu_rpm"], gpu, manual)
+            self.cpu_gauge.set_state(s["cpu_rpm"], s["cpu_temp"], cpu)
+            self.gpu_gauge.set_state(s["gpu_rpm"], s["gpu_temp"], gpu)
+            self.cpu_row.set_state(cpu, manual)
+            self.gpu_row.set_state(gpu, manual)
             self.graph.push(s["cpu_temp"], s["gpu_temp"])
 
             # Load curves once so polling never clobbers an in-progress edit;

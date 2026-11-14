@@ -19,6 +19,9 @@ DKMS package that rebuilds itself on every kernel update.
 ## Features
 
 - 🌡 **Live monitoring** — CPU & GPU temperatures and real fan RPMs
+- 🎛 **NitroSense-style dashboard** — animated RPM gauges with lit tick
+  rings, angular cut-corner panels, and an auto-scaling temperature
+  history graph with min/max readouts
 - 🌀 **Four fan modes** — Auto (firmware), Manual (per-fan sliders),
   **MAX** (one click / `frostctl max`), and **Curve** (your own temp→speed maps)
 - 📉 **Editable fan curves** — independent CPU/GPU curves, applied by the daemon
