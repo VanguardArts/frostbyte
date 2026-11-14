@@ -21,6 +21,9 @@ DKMS package that rebuilds itself on every kernel update.
 - 🛟 **Safety override** — fans are forced to 100% near critical temps and
   returned to firmware control if the daemon stops
 - 🖥 **GUI + CLI + tray** — PyQt6 dashboard, `frostctl` for scripts, system tray
+- 🔘 **NitroSense key support** — the dedicated **N** key toggles the FrostByte
+  window, exactly like on Windows (works under X11 and Wayland, no desktop
+  shortcut binding needed)
 - 🔄 **Survives kernel updates** — DKMS rebuilds the driver automatically
 
 ## How it works
@@ -82,6 +85,19 @@ frostctl profile performance
 frostctl limiter on  # battery charge cap 80%
 frostctl watch       # live status line
 ```
+
+### The NitroSense key
+
+Press the dedicated **N** key to show/hide FrostByte. A tiny root service
+(`frostbyte-keyd.service`) listens for the key's scancode (0xf5, seen as
+keycode 425 — or 148 where systemd's hwdb remaps it) and toggles the GUI in
+your session. If your model uses a different code, discover it with:
+
+```bash
+sudo frostbyte-keyd --learn   # then press the N key
+```
+
+and set it in `/etc/frostbyte/frostbyte.conf` under `[hotkey] keycodes=`.
 
 Logs: `journalctl -u frostbyte-daemon -f` · Config: `/etc/frostbyte/frostbyte.conf`
 

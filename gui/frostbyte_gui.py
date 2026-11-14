@@ -26,11 +26,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QFont
+from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QFrame, QGridLayout, QHBoxLayout, QHeaderView,
     QLabel, QMainWindow, QMessageBox, QPushButton, QSlider, QSpinBox,
     QSystemTrayIcon, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
+
+SINGLE_INSTANCE_NAME = f"frostbyte-gui-{os.getuid()}"
 
 import frostbyte_common as fb
 
@@ -245,6 +248,39 @@ class MainWindow(QMainWindow):
         self._curves_loaded = False
         self._build_ui()
         self._build_tray()
+        self._start_instance_server()
+
+    # ---------------------------------------------- single instance / toggle
+
+    def _start_instance_server(self):
+        self.server = QLocalServer(self)
+        QLocalServer.removeServer(SINGLE_INSTANCE_NAME)  # stale socket
+        if self.server.listen(SINGLE_INSTANCE_NAME):
+            self.server.newConnection.connect(self._on_instance_msg)
+
+    def _on_instance_msg(self):
+        while self.server.hasPendingConnections():
+            sock = self.server.nextPendingConnection()
+            sock.readyRead.connect(lambda s=sock: self._toggle(s))
+
+    def _toggle(self, sock):
+        sock.readAll()
+        sock.disconnectFromServer()
+        if self.isVisible() and not self.isMinimized():
+            self.hide()
+        else:
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
+
+    def closeEvent(self, event):
+        # Closing hides to the tray instead of quitting (Quit lives in the
+        # tray menu) so the NitroSense key can always bring the window back.
+        if self.tray.isVisible():
+            event.ignore()
+            self.hide()
+        else:
+            event.accept()
 
     # ------------------------------------------------------------------ UI
 
@@ -456,6 +492,18 @@ def main():
                              "frostbyte.svg")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
+
+    # Single instance: if FrostByte is already running, ask it to toggle
+    # its window (this is what the NitroSense key ultimately triggers).
+    probe = QLocalSocket()
+    probe.connectToServer(SINGLE_INSTANCE_NAME)
+    if probe.waitForConnected(300):
+        probe.write(b"toggle")
+        probe.flush()
+        probe.waitForBytesWritten(300)
+        probe.disconnectFromServer()
+        sys.exit(0)
+
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

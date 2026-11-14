@@ -10,14 +10,16 @@ say() { printf '\033[1;36m==>\033[0m %s\n' "$*"; }
 
 [[ $EUID -eq 0 ]] || { echo "run as root" >&2; exit 1; }
 
-say "Stopping daemon"
+say "Stopping daemon + key handler"
 systemctl disable --now frostbyte-daemon.service 2>/dev/null || true
-rm -f /etc/systemd/system/frostbyte-daemon.service
+systemctl disable --now frostbyte-keyd.service 2>/dev/null || true
+rm -f /etc/systemd/system/frostbyte-daemon.service \
+      /etc/systemd/system/frostbyte-keyd.service
 systemctl daemon-reload
 
 say "Removing app files"
 rm -rf /opt/frostbyte
-rm -f /usr/local/bin/frostctl /usr/local/bin/frostbyte
+rm -f /usr/local/bin/frostctl /usr/local/bin/frostbyte /usr/local/bin/frostbyte-keyd
 rm -f /usr/share/applications/frostbyte.desktop
 rm -f /usr/share/pixmaps/frostbyte.svg
 rm -f /run/frostbyte.sock

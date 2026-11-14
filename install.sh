@@ -87,9 +87,17 @@ cp "$here/daemon/frostbyte-daemon.py" "$PREFIX/"
 cp "$here/cli/frostctl.py"            "$PREFIX/"
 cp "$here/gui/frostbyte_gui.py"       "$PREFIX/"
 cp "$here/gui/frostbyte.svg"          "$PREFIX/"
-chmod 755 "$PREFIX/frostbyte-daemon.py" "$PREFIX/frostctl.py" "$PREFIX/frostbyte_gui.py"
+cp "$here/keyd/frostbyte-keyd.py"     "$PREFIX/"
+chmod 755 "$PREFIX/frostbyte-daemon.py" "$PREFIX/frostctl.py" \
+          "$PREFIX/frostbyte_gui.py" "$PREFIX/frostbyte-keyd.py"
+
+# Default hotkey config (kernel default 425 + hwdb prog1 remap 148)
+if [[ ! -e /etc/frostbyte/frostbyte.conf ]]; then
+    install -Dm644 "$here/etc/frostbyte.conf" /etc/frostbyte/frostbyte.conf
+fi
 
 ln -sf "$PREFIX/frostctl.py" "$BIN/frostctl"
+ln -sf "$PREFIX/frostbyte-keyd.py" "$BIN/frostbyte-keyd"
 cat > "$BIN/frostbyte" <<'EOF'
 #!/bin/sh
 exec /usr/bin/python3 /opt/frostbyte/frostbyte_gui.py "$@"
@@ -98,9 +106,11 @@ chmod 755 "$BIN/frostbyte"
 ok "frostctl + frostbyte installed"
 
 cp "$here/systemd/frostbyte-daemon.service" /etc/systemd/system/
+cp "$here/systemd/frostbyte-keyd.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now frostbyte-daemon.service
-ok "daemon enabled and started"
+systemctl enable --now frostbyte-keyd.service
+ok "daemon + NitroSense key handler enabled and started"
 
 install -Dm644 "$here/gui/frostbyte.svg" /usr/share/pixmaps/frostbyte.svg
 install -Dm644 "$here/desktop/frostbyte.desktop" \
@@ -121,6 +131,8 @@ cat <<'BANNER'
   ❄ FrostByte installed.
     GUI:     run "frostbyte" or find FrostByte in the app menu
     CLI:     frostctl status | frostctl max | frostctl auto | frostctl fans 60 60
+    Hotkey:  the NitroSense 'N' key toggles the GUI (frostbyte-keyd.service)
+             if it seems dead, run: sudo frostbyte-keyd --learn
     Logs:    journalctl -u frostbyte-daemon -f
     Config:  /etc/frostbyte/frostbyte.conf
 
