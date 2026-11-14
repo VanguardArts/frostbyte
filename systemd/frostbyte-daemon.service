@@ -1,0 +1,16 @@
+[Unit]
+Description=FrostByte - fan & thermal control daemon for Acer Nitro/Predator laptops
+Documentation=https://github.com/frostbyte-laptop/frostbyte
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/frostbyte/frostbyte-daemon.py
+Restart=on-failure
+RestartSec=3
+# The daemon must write to sysfs; it deliberately returns fans to
+# firmware control on exit.
+ExecStopPost=/bin/sh -c "printf '0,0' > /sys/devices/platform/acer-wmi/nitro_sense/fan_speed 2>/dev/null || true"
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=FrostByte
+Comment=Fan & thermal control for Acer Nitro/Predator laptops
+Exec=/usr/local/bin/frostbyte
+Icon=frostbyte
+Terminal=false
+Categories=Settings;System;Utility;
+Keywords=fan;thermal;nitro;acer;cooling;
+StartupNotify=true
