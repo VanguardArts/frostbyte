@@ -48,41 +48,47 @@ SINGLE_INSTANCE_NAME = f"frostbyte-gui-{os.getuid()}"
 # --- Themes (dark mode only) -------------------------------------------------
 # accent = primary highlight, accent2 = secondary (GPU), danger = warnings/MAX
 THEMES = {
-    "glacier": {
-        "label": "Glacier (default)",
-        "accent": "#5ecbff", "accent2": "#9dff70",
-        "bg": "#0b0e14", "card": "#151a23", "edge": "#232a36",
-        "text": "#d7dde6", "muted": "#7d8794", "danger": "#ff5964",
-    },
     "nitro": {
         "label": "Nitro Red",
         "accent": "#ff3b47", "accent2": "#ffb84d",
         "bg": "#100a0c", "card": "#1b1114", "edge": "#331920",
         "text": "#eeddde", "muted": "#947279", "danger": "#ff8a5c",
     },
-    "predator": {
-        "label": "Predator Teal",
-        "accent": "#2fd4c4", "accent2": "#ffd166",
-        "bg": "#090f13", "card": "#101a20", "edge": "#1e3038",
-        "text": "#d8e6e8", "muted": "#6d8b91", "danger": "#ff5964",
+    "ember": {
+        "label": "Ember",
+        "accent": "#ffb02e", "accent2": "#ff6b4a",
+        "bg": "#110d08", "card": "#1c1510", "edge": "#33261a",
+        "text": "#ede2d2", "muted": "#9a8874", "danger": "#ff5964",
+    },
+    "solar": {
+        "label": "Solar Yellow",
+        "accent": "#ffd60a", "accent2": "#ff9f1c",
+        "bg": "#121008", "card": "#1d190f", "edge": "#3a3016",
+        "text": "#efe6cf", "muted": "#9c906d", "danger": "#ff5964",
     },
     "volt": {
         "label": "Volt Green",
-        "accent": "#9ee33c", "accent2": "#5ecbff",
+        "accent": "#46d369", "accent2": "#5ecbff",
         "bg": "#0b0f08", "card": "#131a10", "edge": "#263317",
         "text": "#e4ecd8", "muted": "#81937a", "danger": "#ff5964",
+    },
+    "glacier": {
+        "label": "Glacier (default)",
+        "accent": "#5ecbff", "accent2": "#9dff70",
+        "bg": "#0b0e14", "card": "#151a23", "edge": "#232a36",
+        "text": "#d7dde6", "muted": "#7d8794", "danger": "#ff5964",
+    },
+    "abyss": {
+        "label": "Abyss Indigo",
+        "accent": "#818cf8", "accent2": "#38bdf8",
+        "bg": "#0a0b14", "card": "#14162a", "edge": "#272b47",
+        "text": "#dfe2f2", "muted": "#7e84a8", "danger": "#ff5964",
     },
     "ultraviolet": {
         "label": "Ultraviolet",
         "accent": "#a78bfa", "accent2": "#f472b6",
         "bg": "#0d0a14", "card": "#171126", "edge": "#2b2142",
         "text": "#e5dff0", "muted": "#897ea6", "danger": "#ff5964",
-    },
-    "ember": {
-        "label": "Ember",
-        "accent": "#ffb02e", "accent2": "#ff6b4a",
-        "bg": "#110d08", "card": "#1c1510", "edge": "#33261a",
-        "text": "#ede2d2", "muted": "#9a8874", "danger": "#ff5964",
     },
 }
 DEFAULT_THEME = "glacier"
@@ -670,10 +676,11 @@ class MainWindow(QMainWindow):
             sw.setCheckable(True)
             sw.setToolTip(t["label"])
             sw.setFixedSize(30, 30)
+            lite = QColor(t["accent"]).lighter(140).name()
             sw.setStyleSheet(
                 "QPushButton { border-radius: 15px; border: 2px solid #2a3140;"
                 f" background: qlineargradient(x1:0, y1:0, x2:1, y2:1,"
-                f" stop:0 {t['accent']}, stop:1 {t['accent2']}); }}"
+                f" stop:0 {t['accent']}, stop:1 {lite}); }}"
                 "QPushButton:checked { border: 2px solid #ffffff; }")
             sw.clicked.connect(lambda _c, k=key: self.apply_theme(k))
             self.theme_btns[key] = sw

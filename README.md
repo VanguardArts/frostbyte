@@ -34,8 +34,9 @@ DKMS package that rebuilds itself on every kernel update.
 - 🔘 **NitroSense key support** — the dedicated **N** key toggles the FrostByte
   window, exactly like on Windows (works under X11 and Wayland, no desktop
   shortcut binding needed)
-- 🎨 **Six dark themes** — Glacier, Nitro Red, Predator Teal, Volt Green,
-  Ultraviolet, Ember — switchable live from the header swatches
+- 🎨 **Seven dark themes — one per rainbow color** — Nitro Red, Ember,
+  Solar Yellow, Volt Green, Glacier, Abyss Indigo, Ultraviolet —
+  switchable live from the header swatches
 - 🔄 **Survives kernel updates** — DKMS rebuilds the driver automatically
 
 ## How it works
