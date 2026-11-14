@@ -1,0 +1,22 @@
+#!/bin/sh
+# FrostByte postrm - reload systemd; on purge also drop config + DKMS module.
+set -e
+
+DKMS_NAME="acer-wmi-linuwu"
+DKMS_VER="7.3.0.1"
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload 2>/dev/null || true
+fi
+
+if [ "$1" = "purge" ]; then
+    rm -rf /etc/frostbyte
+    rm -f /run/frostbyte.sock
+    if command -v dkms >/dev/null 2>&1; then
+        dkms remove "${DKMS_NAME}/${DKMS_VER}" --all >/dev/null 2>&1 || true
+    fi
+    modprobe -r acer_wmi 2>/dev/null || true   # in-tree driver returns next boot
+    depmod -a 2>/dev/null || true
+fi
+
+exit 0

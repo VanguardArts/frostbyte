@@ -1,6 +1,6 @@
 [Unit]
 Description=FrostByte - NitroSense/PredatorSense key handler
-Documentation=https://github.com/frostbyte-laptop/frostbyte
+Documentation=https://github.com/VanguardArts/frostbyte
 After=multi-user.target
 
 [Service]

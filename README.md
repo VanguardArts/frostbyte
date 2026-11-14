@@ -1,8 +1,15 @@
 # ❄ FrostByte
 
+[![License: GPL v3+](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/release-v1.1.0-brightgreen)](https://github.com/VanguardArts/frostbyte/releases)
+[![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)](https://github.com/VanguardArts/frostbyte)
+[![Driver: DKMS](https://img.shields.io/badge/driver-DKMS-orange)](#how-it-works)
+
 **Open-source NitroSense/PredatorSense replacement for Linux** — fan control,
 thermal profiles, fan curves and battery care for Acer Nitro & Predator
 laptops. Built for KDE Plasma (Kubuntu), works anywhere with Python + Qt6.
+
+![FrostByte dashboard](docs/screenshot.png)
 
 FrostByte was born on an **Acer Nitro AN517-54** running Kubuntu, after the
 existing tools proved buggy and silently lost their kernel driver on a kernel
@@ -52,12 +59,26 @@ clients of its socket API.
 
 ## Install
 
+### Kubuntu / Ubuntu / Debian — the .deb (recommended)
+
+Download `frostbyte_<ver>_all.deb` from
+[Releases](https://github.com/VanguardArts/frostbyte/releases), then:
+
 ```bash
-git clone <this-repo> && cd frostbyte
+sudo apt install ./frostbyte_*_all.deb
+```
+
+DKMS builds the driver for your kernel, the daemon and NitroSense-key
+services start automatically, and everything updates cleanly with apt.
+
+### Any distro — from source
+
+```bash
+git clone https://github.com/VanguardArts/frostbyte && cd frostbyte
 sudo ./install.sh
 ```
 
-The installer will:
+Either installer will:
 1. verify dependencies (`dkms`, headers, `python3-pyqt6`, …),
 2. remove stale `linuwu_sense`/DAMX driver config that conflicts,
 3. build & install the vendored `acer-wmi-linuwu` driver via DKMS,
@@ -104,8 +125,10 @@ Logs: `journalctl -u frostbyte-daemon -f` · Config: `/etc/frostbyte/frostbyte.c
 ## Uninstall
 
 ```bash
-sudo ./uninstall.sh              # KEEP_DRIVER=1 to keep the DKMS driver
-                                 # PURGE=1 to also delete /etc/frostbyte
+sudo apt purge frostbyte         # if installed from the .deb
+sudo ./uninstall.sh              # if installed from source
+                                 # KEEP_DRIVER=1 keeps the DKMS driver
+                                 # PURGE=1 also deletes /etc/frostbyte
 ```
 
 ## Supported hardware

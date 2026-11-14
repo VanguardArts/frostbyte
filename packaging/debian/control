@@ -1,0 +1,23 @@
+Package: frostbyte
+Version: 1.1.0-1
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: VanguardArts <VanguardArts@users.noreply.github.com>
+Depends: dkms, kmod, python3, python3-pyqt6
+Recommends: linux-headers-generic
+Homepage: https://github.com/VanguardArts/frostbyte
+Description: NitroSense/PredatorSense-style fan & thermal control for Acer laptops
+ FrostByte is an open-source replacement for Acer's NitroSense utility on
+ Linux: per-fan manual control, MAX mode, custom fan curves, thermal
+ profiles with per-power-source memory, battery charge limiter, and a live
+ monitoring dashboard (PyQt6 GUI + frostctl CLI).
+ .
+ Fan speeds and sensors are driven by the vendored acer-wmi-linuwu kernel
+ driver, built automatically via DKMS for the running kernel and rebuilt on
+ every kernel update. A small daemon owns all hardware access and enforces a
+ thermal safety override; the GUI and CLI talk to it over a local socket.
+ The dedicated NitroSense "N" key toggles the GUI, as on Windows.
+ .
+ Developed and tested on the Acer Nitro AN517-54; supports all models
+ handled by the acer-wmi-linuwu driver.

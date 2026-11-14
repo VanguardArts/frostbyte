@@ -1,0 +1,13 @@
+#!/bin/sh
+# FrostByte prerm - stop services before files are removed.
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ] || [ "$1" = "upgrade" ]; then
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl disable --now frostbyte-daemon.service frostbyte-keyd.service >/dev/null 2>&1 || true
+    fi
+    # Stopping the daemon returns fans to firmware control (see the daemon's
+    # shutdown handler), so removal never strands the fans on a manual speed.
+fi
+
+exit 0

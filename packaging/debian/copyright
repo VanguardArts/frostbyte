@@ -1,0 +1,29 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: frostbyte
+Upstream-Contact: VanguardArts <https://github.com/VanguardArts/frostbyte>
+Source: https://github.com/VanguardArts/frostbyte
+
+Files: *
+Copyright: 2026 VanguardArts and FrostByte contributors
+License: GPL-3.0+
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the Free
+ Software Foundation, either version 3 of the License, or (at your option)
+ any later version.
+ .
+ This program is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ more details.
+ .
+ On Debian systems, the complete text of the GNU General Public License
+ version 3 can be found in "/usr/share/common-licenses/GPL-3".
+
+Files: usr/src/acer-wmi-linuwu-7.3.0.1/*
+Copyright: The Linux kernel contributors; Linuwu-Sense, Div-Linuwu-Sense and
+ acer-wmi-linuwu authors (see usr/src/acer-wmi-linuwu-7.3.0.1/README.md)
+License: GPL-2.0
+ The vendored kernel driver is licensed under the GNU General Public License
+ version 2, as documented in its own LICENSE file
+ (usr/src/acer-wmi-linuwu-7.3.0.1/LICENSE). On Debian systems the full text
+ is in "/usr/share/common-licenses/GPL-2".

@@ -1,0 +1,45 @@
+#!/bin/sh
+# FrostByte postinst - configure driver (DKMS), config and services.
+set -e
+
+DKMS_NAME="acer-wmi-linuwu"
+DKMS_VER="7.3.0.1"
+
+if [ "$1" = "configure" ]; then
+    # --- neutralize conflicting DAMX/Linuwu-Sense leftovers ---------------
+    rm -f /etc/modprobe.d/blacklist-acer_wmi.conf \
+          /etc/modprobe.d/linuwu-sense.conf \
+          /etc/modules-load.d/linuwu_sense.conf 2>/dev/null || true
+    rm -f /usr/lib/modules/*/kernel/drivers/platform/x86/linuwu_sense.ko* 2>/dev/null || true
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl disable --now damx-daemon.service >/dev/null 2>&1 || true
+        systemctl disable --now nitro-key-detection.service >/dev/null 2>&1 || true
+    fi
+
+    # --- build & install the kernel driver via DKMS ------------------------
+    if [ -d "/usr/src/${DKMS_NAME}-${DKMS_VER}" ] && command -v dkms >/dev/null 2>&1; then
+        dkms add    "${DKMS_NAME}/${DKMS_VER}" >/dev/null 2>&1 || true
+        dkms build  "${DKMS_NAME}/${DKMS_VER}" >/dev/null 2>&1 || true
+        dkms install "${DKMS_NAME}/${DKMS_VER}" >/dev/null 2>&1 || true
+    fi
+
+    # Load it for the running kernel (best effort; works after reboot anyway)
+    modprobe -r acer_wmi 2>/dev/null || true
+    modprobe acer_wmi 2>/dev/null || true
+
+    # --- default configuration ---------------------------------------------
+    if [ ! -e /etc/frostbyte/frostbyte.conf ]; then
+        mkdir -p /etc/frostbyte
+        cp /usr/share/frostbyte/frostbyte.conf /etc/frostbyte/frostbyte.conf 2>/dev/null || true
+    fi
+
+    # --- services ------------------------------------------------------------
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl daemon-reload || true
+        systemctl enable --now frostbyte-daemon.service frostbyte-keyd.service 2>/dev/null || true
+    fi
+
+    echo "FrostByte installed. GUI: run 'frostbyte' - CLI: frostctl status"
+fi
+
+exit 0

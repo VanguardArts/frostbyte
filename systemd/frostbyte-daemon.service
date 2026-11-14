@@ -1,6 +1,6 @@
 [Unit]
 Description=FrostByte - fan & thermal control daemon for Acer Nitro/Predator laptops
-Documentation=https://github.com/frostbyte-laptop/frostbyte
+Documentation=https://github.com/VanguardArts/frostbyte
 After=multi-user.target
 
 [Service]
