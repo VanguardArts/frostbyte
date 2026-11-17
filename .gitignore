@@ -5,3 +5,5 @@ dist/
 
 # Arch build staging
 packaging/arch/*.tar.gz
+packaging/arch/src/
+packaging/arch/pkg/
