@@ -37,7 +37,7 @@ from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
     QMainWindow, QMenu, QMessageBox, QPushButton, QSizePolicy, QSlider,
-    QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton,
+    QSpinBox, QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton,
     QVBoxLayout, QWidget,
 )
 
@@ -806,6 +806,26 @@ class MainWindow(QMainWindow):
         tog.addWidget(self.follow_chk)
         tog.addStretch(1)
         adv.addLayout(tog)
+        crit = QHBoxLayout()
+        clab = QLabel("Safety override — fans to 100% above (sustained ~6s):")
+        clab.setObjectName("muted")
+        crit.addWidget(clab)
+        self.cpu_crit = QSpinBox()
+        self.cpu_crit.setRange(85, 105)
+        self.cpu_crit.setPrefix("CPU ")
+        self.cpu_crit.setSuffix(" °C")
+        self.cpu_crit.setKeyboardTracking(False)
+        self.cpu_crit.valueChanged.connect(self._crit_changed)
+        self.gpu_crit = QSpinBox()
+        self.gpu_crit.setRange(75, 100)
+        self.gpu_crit.setPrefix("GPU ")
+        self.gpu_crit.setSuffix(" °C")
+        self.gpu_crit.setKeyboardTracking(False)
+        self.gpu_crit.valueChanged.connect(self._crit_changed)
+        crit.addWidget(self.cpu_crit)
+        crit.addWidget(self.gpu_crit)
+        crit.addStretch(1)
+        adv.addLayout(crit)
         self.adv_panel.hide()
         lay.addWidget(self.adv_panel)
 
@@ -815,6 +835,14 @@ class MainWindow(QMainWindow):
         self.adv_panel.setVisible(checked)
         self.adv_btn.setText(("▾  " if checked else "▸  ") +
                              "ADVANCED — fan curves, battery && extras")
+        # make room for the panel (and give it back) so the gauges keep
+        # their shape instead of being squeezed by the layout
+        dh = self.adv_panel.sizeHint().height() + 8
+        if checked:
+            self.resize(self.width(), self.height() + dh)
+        else:
+            self.resize(self.width(), max(self.minimumHeight(),
+                                          self.height() - dh))
 
     def _build_tray(self):
         self.tray = QSystemTrayIcon(self)
@@ -848,6 +876,10 @@ class MainWindow(QMainWindow):
             fb.request(payload, timeout=2.0)
         except fb.DaemonError as exc:
             self.statusBar().showMessage(f"daemon error: {exc}")
+
+    def _crit_changed(self, _value=0):
+        self._send({"cmd": "set_crit", "cpu": self.cpu_crit.value(),
+                    "gpu": self.gpu_crit.value()})
 
     def _slider_changed(self, which, value):
         s = getattr(self, "_last_status", None)
@@ -912,6 +944,8 @@ class MainWindow(QMainWindow):
                 self.limiter_chk.setChecked(bool(s["battery_limiter"]))
             self.follow_chk.setChecked(
                 bool(s["config"]["follow_power_source"]))
+            self.cpu_crit.setValue(int(s["config"].get("cpu_crit", 95)))
+            self.gpu_crit.setValue(int(s["config"].get("gpu_crit", 88)))
 
             if s["safety_override"]:
                 self.statusBar().showMessage(

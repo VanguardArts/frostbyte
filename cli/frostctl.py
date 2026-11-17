@@ -76,6 +76,19 @@ def cmd_limiter(args):
     print(f"Battery limiter {'ON' if args.state == 'on' else 'OFF'}")
 
 
+def cmd_crit(args):
+    if args.cpu is None and args.gpu is None:
+        cfg = fb.get_status()["config"]
+        print(f"Safety override: fans to 100% above "
+              f"{cfg['cpu_crit']}C CPU / {cfg['gpu_crit']}C GPU (sustained)")
+        return
+    cfg = fb.get_status()["config"]
+    cpu = args.cpu if args.cpu is not None else cfg["cpu_crit"]
+    gpu = args.gpu if args.gpu is not None else cfg["gpu_crit"]
+    fb.request({"cmd": "set_crit", "cpu": cpu, "gpu": gpu})
+    print(f"Safety override thresholds: CPU {cpu}C, GPU {gpu}C")
+
+
 def cmd_curves(_args):
     s = fb.get_status()
     for which in ("cpu", "gpu"):
@@ -141,6 +154,11 @@ def build_parser():
 
     sp = sub.add_parser("curves", help="show fan curves")
     sp.set_defaults(func=cmd_curves)
+
+    sp = sub.add_parser("crit", help="show/set safety override thresholds (C)")
+    sp.add_argument("cpu", type=int, nargs="?", help="CPU crit temp (85-105)")
+    sp.add_argument("gpu", type=int, nargs="?", help="GPU crit temp (75-100)")
+    sp.set_defaults(func=cmd_crit)
 
     sp = sub.add_parser("set-curve", help='set a fan curve, e.g. '
                         'frostctl set-curve cpu "40:20,60:45,80:80,93:100"')

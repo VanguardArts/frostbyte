@@ -63,9 +63,10 @@ PLATFORM_PROFILE = "/sys/firmware/acpi/platform_profile"
 PLATFORM_PROFILE_CHOICES = "/sys/firmware/acpi/platform_profile_choices"
 
 TICK_SECONDS = 2.0
-CPU_TEMP_CRIT = 95       # degC: force 100% fans above this
+CPU_TEMP_CRIT = 95       # degC: default crit threshold (configurable, [safety])
 GPU_TEMP_CRIT = 88
 CRIT_RELEASE_HYST = 8     # release override when below crit minus this
+CRIT_SUSTAIN_TICKS = 3   # consecutive polls above crit before fans go 100%
 
 DEFAULT_CPU_CURVE = [(40, 20), (55, 30), (65, 45), (75, 65), (85, 85), (93, 100)]
 DEFAULT_GPU_CURVE = [(40, 20), (55, 35), (65, 55), (75, 75), (85, 100)]
@@ -300,6 +301,8 @@ class Config:
         self.profile_ac = "performance"
         self.profile_battery = "balanced"
         self.follow_power_source = True
+        self.cpu_crit = CPU_TEMP_CRIT
+        self.gpu_crit = GPU_TEMP_CRIT
 
     @staticmethod
     def _parse_points(raw, fallback):
@@ -351,6 +354,12 @@ class Config:
         if parser.has_option("profiles", "follow_power_source"):
             cfg.follow_power_source = parser.getboolean(
                 "profiles", "follow_power_source", fallback=True)
+        if parser.has_option("safety", "cpu_crit"):
+            cfg.cpu_crit = max(85, min(105, parser.getint(
+                "safety", "cpu_crit", fallback=CPU_TEMP_CRIT)))
+        if parser.has_option("safety", "gpu_crit"):
+            cfg.gpu_crit = max(75, min(100, parser.getint(
+                "safety", "gpu_crit", fallback=GPU_TEMP_CRIT)))
         return cfg
 
     def save(self):
@@ -368,6 +377,10 @@ class Config:
             "ac": self.profile_ac,
             "battery": self.profile_battery,
             "follow_power_source": "true" if self.follow_power_source else "false",
+        }
+        parser["safety"] = {
+            "cpu_crit": str(self.cpu_crit),
+            "gpu_crit": str(self.gpu_crit),
         }
         os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
         tmp = CONFIG_PATH + ".tmp"
@@ -388,6 +401,7 @@ class FrostByteDaemon:
         self.lock = threading.Lock()
         self.running = True
         self.safety_override = False
+        self._crit_streak = 0           # consecutive polls above crit temps
         self.last_applied = None        # last (cpu,gpu) actually written
         self.last_ac = None             # last observed AC state
         self.server_sock = None
@@ -431,19 +445,26 @@ class FrostByteDaemon:
         cpu_temp = self.hw.cpu_temp()
         gpu_temp = self.hw.gpu_temp()
 
-        # Safety override: never let the machine cook because of a userspace bug.
-        crit_now = ((cpu_temp is not None and cpu_temp >= CPU_TEMP_CRIT) or
-                    (gpu_temp is not None and gpu_temp >= GPU_TEMP_CRIT))
-        if crit_now and not self.safety_override:
+        # Safety override: never let the machine cook because of a userspace
+        # bug. Requires SUSTAINED heat (CRIT_SUSTAIN_TICKS polls) so brief
+        # turbo transients don't slam the fans - the CPU's own thermal
+        # throttling safely absorbs those 1-2s spikes.
+        cpu_crit, gpu_crit = self.config.cpu_crit, self.config.gpu_crit
+        crit_now = ((cpu_temp is not None and cpu_temp >= cpu_crit) or
+                    (gpu_temp is not None and gpu_temp >= gpu_crit))
+        self._crit_streak = self._crit_streak + 1 if crit_now else 0
+        if self._crit_streak >= CRIT_SUSTAIN_TICKS and not self.safety_override:
             self.safety_override = True
-            log.warning("SAFETY OVERRIDE: cpu=%s gpu=%s - forcing fans to 100%%",
-                        cpu_temp, gpu_temp)
+            log.warning("SAFETY OVERRIDE: cpu=%s gpu=%s sustained %d polls - "
+                        "forcing fans to 100%%",
+                        cpu_temp, gpu_temp, self._crit_streak)
             self._apply_fans(100, 100)
         elif self.safety_override:
-            cool_cpu = cpu_temp is None or cpu_temp < CPU_TEMP_CRIT - CRIT_RELEASE_HYST
-            cool_gpu = gpu_temp is None or gpu_temp < GPU_TEMP_CRIT - CRIT_RELEASE_HYST
+            cool_cpu = cpu_temp is None or cpu_temp < cpu_crit - CRIT_RELEASE_HYST
+            cool_gpu = gpu_temp is None or gpu_temp < gpu_crit - CRIT_RELEASE_HYST
             if cool_cpu and cool_gpu:
                 self.safety_override = False
+                self._crit_streak = 0
                 self.last_applied = None
                 log.info("temperatures back to safe levels, releasing override")
                 self.apply_mode()
@@ -503,6 +524,8 @@ class FrostByteDaemon:
                 "profile_ac": self.config.profile_ac,
                 "profile_battery": self.config.profile_battery,
                 "follow_power_source": self.config.follow_power_source,
+                "cpu_crit": self.config.cpu_crit,
+                "gpu_crit": self.config.gpu_crit,
             },
         }
 
@@ -571,6 +594,20 @@ class FrostByteDaemon:
 
             if cmd == "set_follow_power":
                 self.config.follow_power_source = bool(req.get("enabled"))
+                self.config.save()
+                return {"ok": True}
+
+            if cmd == "set_crit":
+                try:
+                    cpu = int(req.get("cpu"))
+                    gpu = int(req.get("gpu"))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "need integer cpu/gpu"}
+                if not (85 <= cpu <= 105) or not (75 <= gpu <= 100):
+                    return {"ok": False,
+                            "error": "range: cpu 85-105, gpu 75-100"}
+                self.config.cpu_crit = cpu
+                self.config.gpu_crit = gpu
                 self.config.save()
                 return {"ok": True}
 

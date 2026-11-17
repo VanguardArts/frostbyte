@@ -28,8 +28,9 @@ DKMS package that rebuilds itself on every kernel update.
 - ⚡ **Thermal profiles** — quiet / balanced / performance, with optional
   per-power-source memory (AC vs battery)
 - 🔋 **Battery limiter** — cap charge at 80% to preserve battery health
-- 🛟 **Safety override** — fans are forced to 100% near critical temps and
-  returned to firmware control if the daemon stops
+- 🛟 **Safety override** — fans are forced to 100% only on *sustained*
+  critical heat (~6s, thresholds configurable); brief turbo spikes are
+  ignored, and fans return to firmware control if the daemon stops
 - 🖥 **GUI + CLI + tray** — PyQt6 dashboard, `frostctl` for scripts, system tray
 - 🔘 **NitroSense key support** — the dedicated **N** key toggles the FrostByte
   window, exactly like on Windows (works under X11 and Wayland, no desktop
