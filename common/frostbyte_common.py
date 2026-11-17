@@ -23,7 +23,7 @@ import os
 import socket
 import sys
 
-FROSTBYTE_VERSION = "1.5.0"
+FROSTBYTE_VERSION = "1.5.1"
 
 SOCKET_PATH = "/run/frostbyte.sock"
 CONFIG_PATH = "/etc/frostbyte/frostbyte.conf"

@@ -140,7 +140,28 @@ QHeaderView::section {{ background: #1c2230; color: {t['muted']};
 QCheckBox {{ spacing: 8px; }}
 QCheckBox::indicator {{ width: 18px; height: 18px; }}
 QSpinBox {{ background: #1c2230; border: 1px solid {t['edge']};
-    border-radius: 6px; padding: 4px; }}
+    border-radius: 6px; padding: 4px 20px 4px 8px; min-height: 26px;
+    selection-background-color: {t['accent']}; }}
+QSpinBox::up-button {{ subcontrol-origin: border;
+    subcontrol-position: top right; width: 20px; height: 13px;
+    background: #232a36; border: none; border-left: 1px solid {t['edge']};
+    border-bottom: 1px solid {t['edge']}; border-top-right-radius: 5px; }}
+QSpinBox::down-button {{ subcontrol-origin: border;
+    subcontrol-position: bottom right; width: 20px; height: 13px;
+    background: #232a36; border: none; border-left: 1px solid {t['edge']};
+    border-bottom-right-radius: 5px; }}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+    background: #2e3746; }}
+QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {{
+    background: {t['accent']}; }}
+QSpinBox::up-arrow {{ width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-bottom: 6px solid {t['text']}; }}
+QSpinBox::up-arrow:hover {{ border-bottom-color: {t['accent']}; }}
+QSpinBox::down-arrow {{ width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid {t['text']}; }}
+QSpinBox::down-arrow:hover {{ border-top-color: {t['accent']}; }}
 QToolButton#adv {{ color: {t['muted']}; border: none; font-weight: 700;
     letter-spacing: 1px; padding: 8px 4px; text-align: left; }}
 QToolButton#adv:hover {{ color: {t['accent']}; }}
