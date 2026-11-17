@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 dist/
+
+# Arch build staging
+packaging/arch/*.tar.gz

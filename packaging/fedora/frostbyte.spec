@@ -6,7 +6,7 @@
 %global drv_ver  7.3.0.1
 
 Name:           frostbyte
-Version:        1.5.2
+Version: 1.5.2
 Release:        1%{?dist}
 Summary:        NitroSense/PredatorSense-style fan & thermal control for Acer laptops
 
