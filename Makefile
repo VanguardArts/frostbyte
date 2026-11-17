@@ -6,10 +6,16 @@
 
 VERSION := $(shell grep -Po 'FROSTBYTE_VERSION = "\K[^"]+' common/frostbyte_common.py)
 
-.PHONY: deb tarball dist clean
+.PHONY: deb rpm pkg tarball dist clean
 
 deb:
 	./packaging/build-deb.sh
+
+rpm:
+	./packaging/build-rpm.sh
+
+pkg:
+	./packaging/build-pkg.sh
 
 tarball:
 	mkdir -p dist

@@ -66,19 +66,25 @@ clients of its socket API.
 
 ## Install
 
-### Kubuntu / Ubuntu / Debian — the .deb (recommended)
+Prebuilt packages for the major distro families are attached to every
+[Release](https://github.com/VanguardArts/frostbyte/releases):
 
-Download `frostbyte_<ver>_all.deb` from
-[Releases](https://github.com/VanguardArts/frostbyte/releases), then:
+| Distro family | Package | Install |
+|---|---|---|
+| Debian / Ubuntu / Kubuntu | `.deb` | `sudo apt install ./frostbyte_*_all.deb` |
+| Fedora / RHEL / Bazzite / Nobara | `.rpm` | `sudo dnf install ./frostbyte-*.rpm` |
+| openSUSE | `.rpm` | `sudo zypper install ./frostbyte-*.rpm` |
+| Arch / EndeavourOS / Manjaro | `.pkg.tar.zst` | `sudo pacman -U ./frostbyte-*.pkg.tar.zst` |
+| Anything systemd-based | source tarball | `sudo ./install.sh` |
 
-```bash
-sudo apt install ./frostbyte_*_all.deb
-```
+A GitHub Actions workflow builds the `.deb`, `.rpm` and Arch package natively
+on their own distros and attaches them on every tag, so each package is
+produced by the correct toolchain.
 
-DKMS builds the driver for your kernel, the daemon and NitroSense-key
-services start automatically, and everything updates cleanly with apt.
+### From source (any distro)
 
-### Any distro — from source
+`install.sh` auto-detects your package manager (`apt`/`dnf`/`pacman`/`zypper`)
+and installs the correctly-named dependencies:
 
 ```bash
 git clone https://github.com/VanguardArts/frostbyte && cd frostbyte

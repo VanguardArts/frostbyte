@@ -1,0 +1,55 @@
+# Maintainer: VanguardArts <VanguardArts@users.noreply.github.com>
+# FrostByte — Arch Linux package (also suitable for the AUR).
+# Build with:  ./packaging/build-pkg.sh  (wraps makepkg in an Arch container)
+
+pkgname=frostbyte
+pkgver=1.5.2
+pkgrel=1
+pkgdesc="NitroSense/PredatorSense-style fan & thermal control for Acer Nitro/Predator laptops"
+arch=('any')
+url="https://github.com/VanguardArts/frostbyte"
+license=('GPL-3.0-only')
+depends=('python-pyqt6' 'dkms' 'kmod' 'python')
+makedepends=('linux-headers')
+source=("frostbyte-$pkgver.tar.gz::https://github.com/VanguardArts/frostbyte/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+install=frostbyte.install
+
+_drvname=acer-wmi-linuwu
+_drvver=7.3.0.1
+
+package() {
+  cd "$srcdir/frostbyte-$pkgver"
+
+  install -dm755 "$pkgdir/usr/lib/frostbyte"
+  install -m644 common/frostbyte_common.py "$pkgdir/usr/lib/frostbyte/"
+  install -m755 daemon/frostbyte-daemon.py "$pkgdir/usr/lib/frostbyte/"
+  install -m755 cli/frostctl.py            "$pkgdir/usr/lib/frostbyte/"
+  install -m755 gui/frostbyte_gui.py       "$pkgdir/usr/lib/frostbyte/"
+  install -m755 keyd/frostbyte-keyd.py     "$pkgdir/usr/lib/frostbyte/"
+  install -m644 gui/frostbyte.svg          "$pkgdir/usr/lib/frostbyte/"
+
+  install -dm755 "$pkgdir/usr/lib/systemd/system"
+  install -m644 systemd/frostbyte-daemon.service "$pkgdir/usr/lib/systemd/system/"
+  install -m644 systemd/frostbyte-keyd.service   "$pkgdir/usr/lib/systemd/system/"
+  sed -i 's|/opt/frostbyte|/usr/lib/frostbyte|g' \
+      "$pkgdir/usr/lib/systemd/system/frostbyte-"*.service
+
+  install -dm755 "$pkgdir/usr/share/applications" \
+                 "$pkgdir/usr/share/pixmaps" \
+                 "$pkgdir/usr/share/frostbyte"
+  install -m644 desktop/frostbyte.desktop "$pkgdir/usr/share/applications/"
+  install -m644 gui/frostbyte.svg         "$pkgdir/usr/share/pixmaps/"
+  install -m644 etc/frostbyte.conf        "$pkgdir/usr/share/frostbyte/"
+
+  install -dm755 "$pkgdir/usr/bin"
+  printf '#!/bin/sh\nexec /usr/bin/python3 /usr/lib/frostbyte/frostbyte_gui.py "$@"\n' \
+      > "$pkgdir/usr/bin/frostbyte"
+  chmod 755 "$pkgdir/usr/bin/frostbyte"
+  ln -s ../lib/frostbyte/frostctl.py       "$pkgdir/usr/bin/frostctl"
+  ln -s ../lib/frostbyte/frostbyte-keyd.py "$pkgdir/usr/bin/frostbyte-keyd"
+
+  # Vendored kernel driver source for DKMS.
+  install -dm755 "$pkgdir/usr/src/$_drvname-$_drvver"
+  cp -a driver/"$_drvname"/. "$pkgdir/usr/src/$_drvname-$_drvver/"
+}

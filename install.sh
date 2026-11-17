@@ -25,18 +25,59 @@ die()  { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "please run as root: sudo ./install.sh"
 
 # ---------------------------------------------------------------- dependencies
+# Detects the distro's package manager so the installer works on Debian/Ubuntu,
+# Fedora/RHEL, Arch, and openSUSE (all systemd-based). Package names for the
+# same dependency differ (python3-pyqt6 vs python-pyqt6, etc.).
 say "Checking dependencies"
-missing=()
-for pkg in dkms make gcc python3; do
-    command -v "$pkg" >/dev/null || missing+=("$pkg")
-done
-python3 -c 'import PyQt6' 2>/dev/null || missing+=("python3-pyqt6")
-[[ -e "/lib/modules/$(uname -r)/build/Makefile" ]] \
-    || missing+=("linux-headers-$(uname -r)")
-if ((${#missing[@]})); then
-    say "Installing missing packages: ${missing[*]}"
-    apt-get update -qq
-    apt-get install -y "${missing[@]}"
+
+PM=""
+if   command -v apt-get >/dev/null 2>&1; then PM="apt"
+elif command -v dnf     >/dev/null 2>&1; then PM="dnf"
+elif command -v pacman  >/dev/null 2>&1; then PM="pacman"
+elif command -v zypper  >/dev/null 2>&1; then PM="zypper"
+fi
+
+need_install=()
+command -v dkms    >/dev/null 2>&1 || need_install+=("dkms")
+command -v gcc     >/dev/null 2>&1 || need_install+=("gcc")
+command -v make    >/dev/null 2>&1 || need_install+=("make")
+command -v python3 >/dev/null 2>&1 || need_install+=("python3")
+if ! python3 -c 'import PyQt6' 2>/dev/null; then
+    if [[ "$PM" == "pacman" ]]; then need_install+=("python-pyqt6")
+    else need_install+=("python3-pyqt6"); fi
+fi
+
+# Kernel headers are needed for DKMS and are named differently per distro;
+# install them separately so a header-package hiccup can't roll back the rest.
+headers_missing=0
+[[ -e "/lib/modules/$(uname -r)/build/Makefile" ]] || headers_missing=1
+
+if ((${#need_install[@]})) || [[ $headers_missing -eq 1 ]]; then
+    case "$PM" in
+        apt)
+            apt-get update -qq
+            ((${#need_install[@]})) && apt-get install -y "${need_install[@]}"
+            [[ $headers_missing -eq 1 ]] && apt-get install -y "linux-headers-$(uname -r)"
+            ;;
+        dnf)
+            ((${#need_install[@]})) && dnf install -y --refresh "${need_install[@]}"
+            if [[ $headers_missing -eq 1 ]]; then
+                dnf install -y "kernel-devel-$(uname -r)" 2>/dev/null || dnf install -y kernel-devel
+            fi
+            ;;
+        pacman)
+            pacman -Sy --noconfirm
+            ((${#need_install[@]})) && pacman -S --needed --noconfirm "${need_install[@]}"
+            [[ $headers_missing -eq 1 ]] && pacman -S --needed --noconfirm linux-headers
+            ;;
+        zypper)
+            ((${#need_install[@]})) && zypper --non-interactive install "${need_install[@]}"
+            [[ $headers_missing -eq 1 ]] && zypper --non-interactive install kernel-devel
+            ;;
+        *)
+            die "no supported package manager found (need apt/dnf/pacman/zypper)"
+            ;;
+    esac
 fi
 ok "dependencies satisfied"
 
