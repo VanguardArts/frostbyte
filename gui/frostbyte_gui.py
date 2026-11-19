@@ -37,7 +37,8 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QFrame, QHBoxLayout, QHeaderView, QInputDialog, QLabel,
+    QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFrame,
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit,
     QMainWindow, QMenu, QMessageBox, QPushButton, QSizePolicy, QSlider,
     QSpinBox, QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton,
     QVBoxLayout, QWidget,
@@ -1070,11 +1071,38 @@ class MainWindow(QMainWindow):
             self.gpu_procs.setText("no processes on dGPU")
 
     def _gpu_launch(self):
-        cmd, ok = QInputDialog.getText(
-            self, "Launch on RTX 3050",
-            "Command to run on the dedicated GPU\n"
-            "(path to a game or app, plus args):")
-        if not ok or not cmd.strip():
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Launch on RTX 3050")
+        lay = QVBoxLayout(dlg)
+        lay.addWidget(QLabel("Executable (path or command + optional args):"))
+        row = QHBoxLayout()
+        cmd_edit = QLineEdit()
+        cmd_edit.setPlaceholderText("/path/to/game  or  app")
+        browse = QPushButton("Browse…")
+        row.addWidget(cmd_edit, 1)
+        row.addWidget(browse)
+        lay.addLayout(row)
+        hint = QLabel("Runs via PRIME render offload on the NVIDIA dGPU.")
+        hint.setObjectName("muted")
+        lay.addWidget(hint)
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        lay.addWidget(btns)
+
+        def _pick():
+            path, _filt = QFileDialog.getOpenFileName(
+                dlg, "Select application or game", "/usr/bin", "All files (*)")
+            if path:
+                cmd_edit.setText(path)
+
+        browse.clicked.connect(_pick)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        cmd = cmd_edit.text().strip()
+        if not cmd:
             return
         try:
             argv = shlex.split(cmd)
