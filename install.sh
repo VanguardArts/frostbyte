@@ -124,13 +124,16 @@ fi
 say "Installing FrostByte to $PREFIX"
 mkdir -p "$PREFIX" /etc/frostbyte
 cp "$here/common/frostbyte_common.py" "$PREFIX/"
+cp "$here/common/frostbyte_gpu.py"     "$PREFIX/"
 cp "$here/daemon/frostbyte-daemon.py" "$PREFIX/"
 cp "$here/cli/frostctl.py"            "$PREFIX/"
+cp "$here/cli/frostbyte-gpu-run"      "$PREFIX/"
 cp "$here/gui/frostbyte_gui.py"       "$PREFIX/"
 cp "$here/gui/frostbyte.svg"          "$PREFIX/"
 cp "$here/keyd/frostbyte-keyd.py"     "$PREFIX/"
 chmod 755 "$PREFIX/frostbyte-daemon.py" "$PREFIX/frostctl.py" \
-          "$PREFIX/frostbyte_gui.py" "$PREFIX/frostbyte-keyd.py"
+          "$PREFIX/frostbyte_gui.py" "$PREFIX/frostbyte-keyd.py" \
+          "$PREFIX/frostbyte-gpu-run"
 
 # Default hotkey config (kernel default 425 + hwdb prog1 remap 148)
 if [[ ! -e /etc/frostbyte/frostbyte.conf ]]; then
@@ -138,6 +141,7 @@ if [[ ! -e /etc/frostbyte/frostbyte.conf ]]; then
 fi
 
 ln -sf "$PREFIX/frostctl.py" "$BIN/frostctl"
+ln -sf "$PREFIX/frostbyte-gpu-run" "$BIN/frostbyte-gpu-run"
 ln -sf "$PREFIX/frostbyte-keyd.py" "$BIN/frostbyte-keyd"
 cat > "$BIN/frostbyte" <<'EOF'
 #!/bin/sh

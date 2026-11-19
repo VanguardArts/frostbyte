@@ -1,7 +1,7 @@
 # ❄ FrostByte
 
 [![License: GPL v3+](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.2.0-brightgreen)](https://github.com/VanguardArts/frostbyte/releases)
+[![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen)](https://github.com/VanguardArts/frostbyte/releases)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)](https://github.com/VanguardArts/frostbyte)
 [![Driver: DKMS](https://img.shields.io/badge/driver-DKMS-orange)](#how-it-works)
 
@@ -38,6 +38,9 @@ DKMS package that rebuilds itself on every kernel update.
 - 🎨 **Seven dark themes — one per rainbow color** — Nitro Red, Ember,
   Solar Yellow, Volt Green, Glacier, Abyss Indigo, Ultraviolet —
   switchable live from the header swatches
+- 🎮 **Dedicated GPU panel** — live RTX dGPU readout (temp, power, clock,
+  utilization, VRAM), a list of which processes are actually using it,
+  one-click **launch on the dGPU** (`frostbyte-gpu-run`), and a park toggle
 - 🔄 **Survives kernel updates** — DKMS rebuilds the driver automatically
 
 ## How it works
@@ -148,6 +151,41 @@ sudo ./uninstall.sh              # if installed from source
 
 Anything the driver supports — see its [supported model table](driver/acer-wmi-linuwu/README.md).
 Developed and tested on **Acer Nitro AN517-54** (i7-11800H / RTX 3050 Ti).
+
+## Dedicated GPU control (optional)
+
+On dual-GPU Nitro models (Intel iGPU + RTX dGPU), FrostByte includes a
+**Dedicated GPU** panel:
+
+- **Live readout** — the dGPU's temperature, power draw, core clock,
+  utilization and VRAM usage (via `nvidia-smi`).
+- **Process list** — what's actually running on the dGPU, so you can see
+  when a CUDA app (e.g. a local LLM) claims it.
+- **▶ Launch on RTX 3050** — run any app/game on the dGPU via PRIME render
+  offload. From a terminal: `frostbyte-gpu-run <command>`.
+- **Park dGPU** — drop persistence mode so the driver can unload when idle.
+
+### Keeping the machine cool
+
+Two optional, distribution-level tweaks make a large difference to idle heat:
+
+1. **Hardware video decode** — stops Firefox/YouTube from software-decoding
+   video (which pins a CPU core and drives up temperature):
+
+   ```bash
+   sudo apt install intel-media-driver vainfo          # Debian/Ubuntu
+   ```
+
+   then in Firefox `about:config` set `media.hardware-video-decoding.enabled`
+   and `media.ffmpeg.vaapi.enabled` to `true`.
+
+2. **dGPU power-gating** — lets the RTX card drop to ~0 W when unused
+   (needs a reboot):
+
+   ```bash
+   echo 'options nvidia NVreg_DynamicPowerManagement=0x02' | sudo tee /etc/modprobe.d/nvidia-power.conf
+   sudo update-initramfs -u
+   ```
 
 ## FAQ
 

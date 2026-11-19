@@ -20,6 +20,8 @@
 
 import math
 import os
+import shlex
+import subprocess
 import sys
 from collections import deque
 
@@ -35,13 +37,14 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
+    QApplication, QCheckBox, QFrame, QHBoxLayout, QHeaderView, QInputDialog, QLabel,
     QMainWindow, QMenu, QMessageBox, QPushButton, QSizePolicy, QSlider,
     QSpinBox, QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton,
     QVBoxLayout, QWidget,
 )
 
 import frostbyte_common as fb
+import frostbyte_gpu as fb_gpu
 
 SINGLE_INSTANCE_NAME = f"frostbyte-gui-{os.getuid()}"
 
@@ -165,6 +168,7 @@ QSpinBox::down-arrow:hover {{ border-top-color: {t['accent']}; }}
 QToolButton#adv {{ color: {t['muted']}; border: none; font-weight: 700;
     letter-spacing: 1px; padding: 8px 4px; text-align: left; }}
 QToolButton#adv:hover {{ color: {t['accent']}; }}
+QLabel#gpuval {{ font-size: 17px; font-weight: 700; color: {t['accent']}; }}
 """
 
 STYLESHEET = make_stylesheet(THEMES[DEFAULT_THEME])
@@ -621,6 +625,10 @@ class MainWindow(QMainWindow):
         self._build_tray()
         self._start_instance_server()
         self.theme_btns[self.theme_key].setChecked(True)
+        self._gpu_timer = QTimer(self)
+        self._gpu_timer.timeout.connect(self._gpu_poll)
+        self._gpu_timer.start(2500)
+        self._gpu_poll()
 
     # ---------------------------------------------- single instance / toggle
 
@@ -791,6 +799,49 @@ class MainWindow(QMainWindow):
         gl.addWidget(self.graph)
         self._frames.append(gframe)
         lay.addWidget(gframe, 1)
+
+        # Dedicated GPU monitor + launch controls
+        ggframe = AngledFrame(self.theme)
+        ggl = QVBoxLayout(ggframe)
+        ggl.setContentsMargins(14, 10, 14, 12)
+        self.gpu_title = QLabel("DEDICATED GPU")
+        self.gpu_title.setObjectName("title")
+        ggl.addWidget(self.gpu_title)
+        gstats = QHBoxLayout()
+        self._gpu_vals = {}
+        for key, label in (("temperature.gpu", "TEMP °C"),
+                           ("power.draw", "POWER W"),
+                           ("clocks.sm", "CORE MHz"),
+                           ("utilization.gpu", "UTIL %"),
+                           ("memory.used", "VRAM MB")):
+            box = QVBoxLayout()
+            v = QLabel("—")
+            v.setObjectName("gpuval")
+            l = QLabel(label)
+            l.setObjectName("muted")
+            box.addWidget(v)
+            box.addWidget(l)
+            self._gpu_vals[key] = v
+            gstats.addLayout(box)
+        gstats.addStretch(1)
+        ggl.addLayout(gstats)
+        self.gpu_procs = QLabel("no processes on dGPU")
+        self.gpu_procs.setObjectName("muted")
+        ggl.addWidget(self.gpu_procs)
+        gbtns = QHBoxLayout()
+        self.gpu_launch_btn = QPushButton("▶ Launch on RTX 3050…")
+        self.gpu_launch_btn.clicked.connect(self._gpu_launch)
+        self.gpu_park_btn = QPushButton("Park dGPU (persistence off)")
+        self.gpu_park_btn.setToolTip(
+            "Drop persistence mode so the driver can unload when idle. "
+            "The full power-gate is the runtime-PM modprobe option (see README).")
+        self.gpu_park_btn.clicked.connect(self._gpu_park)
+        gbtns.addWidget(self.gpu_launch_btn)
+        gbtns.addWidget(self.gpu_park_btn)
+        gbtns.addStretch(1)
+        ggl.addLayout(gbtns)
+        self._frames.append(ggframe)
+        lay.addWidget(ggframe)
 
         # Advanced (collapsible): curves + extras
         self.adv_btn = QToolButton()
@@ -973,6 +1024,81 @@ class MainWindow(QMainWindow):
                     "⚠ SAFETY OVERRIDE - temperatures critical, fans at 100%")
         finally:
             self._syncing = False
+
+    # ------------------------------------------------------------------ GPU
+
+    def _gpu_poll(self):
+        st = fb_gpu.gpu_status()
+        if st is None:
+            self.gpu_title.setText("DEDICATED GPU — not detected")
+            for v in self._gpu_vals.values():
+                v.setText("—")
+            self.gpu_procs.setText("nvidia-smi unavailable")
+            self.gpu_launch_btn.setEnabled(False)
+            self.gpu_park_btn.setEnabled(False)
+            return
+        self.gpu_launch_btn.setEnabled(True)
+        self.gpu_park_btn.setEnabled(True)
+        name = st.get("name", "NVIDIA GPU").replace("NVIDIA GeForce ", "")
+        self.gpu_title.setText(f"DEDICATED GPU — {name.upper()}")
+
+        def _fmt(raw, suffix=""):
+            if not raw or raw in ("[N/A]", "N/A"):
+                return "—"
+            return f"{raw}{suffix}"
+
+        self._gpu_vals["temperature.gpu"].setText(
+            _fmt(st.get("temperature.gpu"), "°C"))
+        self._gpu_vals["power.draw"].setText(_fmt(st.get("power.draw"), "W"))
+        self._gpu_vals["clocks.sm"].setText(_fmt(st.get("clocks.sm"), "MHz"))
+        self._gpu_vals["utilization.gpu"].setText(
+            _fmt(st.get("utilization.gpu"), "%"))
+        used, total = st.get("memory.used"), st.get("memory.total")
+        if used and used not in ("[N/A]", "N/A"):
+            vram = (f"{used} / {total} MB"
+                    if total and total not in ("[N/A]", "N/A")
+                    else f"{used} MB")
+        else:
+            vram = "—"
+        self._gpu_vals["memory.used"].setText(vram)
+        procs = fb_gpu.gpu_processes()
+        if procs:
+            self.gpu_procs.setText(
+                "on dGPU: " + ", ".join(
+                    f"{p['name']} (pid {p['pid']})" for p in procs))
+        else:
+            self.gpu_procs.setText("no processes on dGPU")
+
+    def _gpu_launch(self):
+        cmd, ok = QInputDialog.getText(
+            self, "Launch on RTX 3050",
+            "Command to run on the dedicated GPU\n"
+            "(path to a game or app, plus args):")
+        if not ok or not cmd.strip():
+            return
+        try:
+            argv = shlex.split(cmd)
+        except ValueError:
+            self.statusBar().showMessage("couldn't parse command")
+            return
+        try:
+            fb_gpu.launch_on_gpu(argv)
+            self.statusBar().showMessage(f"launched on RTX 3050: {argv[0]}")
+        except OSError as exc:
+            self.statusBar().showMessage(f"launch failed: {exc}")
+
+    def _gpu_park(self):
+        # Best-effort runtime park: drop persistence so the driver can unload
+        # when idle. Needs privileges (pkexec will prompt). The full power-gate
+        # is the NVreg_DynamicPowerManagement modprobe option + reboot.
+        try:
+            subprocess.Popen(
+                ["pkexec", "nvidia-smi", "--persistence-mode=0"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self.statusBar().showMessage(
+                "park request sent (may prompt for your password)")
+        except OSError as exc:
+            self.statusBar().showMessage(f"park failed: {exc}")
 
 
 def main(theme=None):

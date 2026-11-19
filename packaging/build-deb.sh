@@ -35,8 +35,10 @@ chmod 755 "$STAGE/DEBIAN/postinst" "$STAGE/DEBIAN/prerm" "$STAGE/DEBIAN/postrm"
 
 # --- application ------------------------------------------------------------
 install -m644 "$here/common/frostbyte_common.py" "$STAGE/usr/lib/frostbyte/"
+install -m644 "$here/common/frostbyte_gpu.py"     "$STAGE/usr/lib/frostbyte/"
 install -m755 "$here/daemon/frostbyte-daemon.py" "$STAGE/usr/lib/frostbyte/"
 install -m755 "$here/cli/frostctl.py"            "$STAGE/usr/lib/frostbyte/"
+install -m755 "$here/cli/frostbyte-gpu-run"      "$STAGE/usr/lib/frostbyte/"
 install -m755 "$here/gui/frostbyte_gui.py"       "$STAGE/usr/lib/frostbyte/"
 install -m755 "$here/keyd/frostbyte-keyd.py"     "$STAGE/usr/lib/frostbyte/"
 install -m644 "$here/gui/frostbyte.svg"          "$STAGE/usr/lib/frostbyte/"
@@ -48,6 +50,7 @@ EOF
 chmod 755 "$STAGE/usr/bin/frostbyte"
 ln -s ../lib/frostbyte/frostctl.py        "$STAGE/usr/bin/frostctl"
 ln -s ../lib/frostbyte/frostbyte-keyd.py  "$STAGE/usr/bin/frostbyte-keyd"
+ln -s ../lib/frostbyte/frostbyte-gpu-run "$STAGE/usr/bin/frostbyte-gpu-run"
 
 # --- systemd, desktop, icon, config template --------------------------------
 install -m644 "$here/systemd/frostbyte-daemon.service" "$STAGE/usr/lib/systemd/system/"

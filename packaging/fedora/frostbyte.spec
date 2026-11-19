@@ -48,8 +48,10 @@ install -d %{buildroot}/usr/share/pixmaps
 install -d %{buildroot}/usr/share/frostbyte
 
 install -m644 common/frostbyte_common.py  %{buildroot}/usr/lib/frostbyte/
+install -m644 common/frostbyte_gpu.py     %{buildroot}/usr/lib/frostbyte/
 install -m755 daemon/frostbyte-daemon.py  %{buildroot}/usr/lib/frostbyte/
 install -m755 cli/frostctl.py             %{buildroot}/usr/lib/frostbyte/
+install -m755 cli/frostbyte-gpu-run      %{buildroot}/usr/lib/frostbyte/
 install -m755 gui/frostbyte_gui.py        %{buildroot}/usr/lib/frostbyte/
 install -m755 keyd/frostbyte-keyd.py      %{buildroot}/usr/lib/frostbyte/
 install -m644 gui/frostbyte.svg           %{buildroot}/usr/lib/frostbyte/
@@ -71,6 +73,7 @@ WRAP_EOF
 chmod 755 %{buildroot}/usr/bin/frostbyte
 ln -s ../lib/frostbyte/frostctl.py       %{buildroot}/usr/bin/frostctl
 ln -s ../lib/frostbyte/frostbyte-keyd.py %{buildroot}/usr/bin/frostbyte-keyd
+ln -s ../lib/frostbyte/frostbyte-gpu-run %{buildroot}/usr/bin/frostbyte-gpu-run
 
 # Vendored kernel driver source for DKMS.
 install -d %{buildroot}/usr/src/%{drv_name}-%{drv_ver}
@@ -118,6 +121,7 @@ fi
 /usr/bin/frostbyte
 /usr/bin/frostctl
 /usr/bin/frostbyte-keyd
+/usr/bin/frostbyte-gpu-run
 /usr/lib/systemd/system/frostbyte-daemon.service
 /usr/lib/systemd/system/frostbyte-keyd.service
 /usr/share/applications/frostbyte.desktop

@@ -3,7 +3,7 @@
 # Build with:  ./packaging/build-pkg.sh  (wraps makepkg in an Arch container)
 
 pkgname=frostbyte
-pkgver=1.5.2
+pkgver=1.6.0
 pkgrel=1
 pkgdesc="NitroSense/PredatorSense-style fan & thermal control for Acer Nitro/Predator laptops"
 arch=('any')
@@ -25,8 +25,10 @@ package() {
 
   install -dm755 "$pkgdir/usr/lib/frostbyte"
   install -m644 common/frostbyte_common.py "$pkgdir/usr/lib/frostbyte/"
+  install -m644 common/frostbyte_gpu.py     "$pkgdir/usr/lib/frostbyte/"
   install -m755 daemon/frostbyte-daemon.py "$pkgdir/usr/lib/frostbyte/"
   install -m755 cli/frostctl.py            "$pkgdir/usr/lib/frostbyte/"
+  install -m755 cli/frostbyte-gpu-run      "$pkgdir/usr/lib/frostbyte/"
   install -m755 gui/frostbyte_gui.py       "$pkgdir/usr/lib/frostbyte/"
   install -m755 keyd/frostbyte-keyd.py     "$pkgdir/usr/lib/frostbyte/"
   install -m644 gui/frostbyte.svg          "$pkgdir/usr/lib/frostbyte/"
@@ -50,6 +52,7 @@ package() {
   chmod 755 "$pkgdir/usr/bin/frostbyte"
   ln -s ../lib/frostbyte/frostctl.py       "$pkgdir/usr/bin/frostctl"
   ln -s ../lib/frostbyte/frostbyte-keyd.py "$pkgdir/usr/bin/frostbyte-keyd"
+  ln -s ../lib/frostbyte/frostbyte-gpu-run "$pkgdir/usr/bin/frostbyte-gpu-run"
 
   # Vendored kernel driver source for DKMS.
   install -dm755 "$pkgdir/usr/src/$_drvname-$_drvver"
