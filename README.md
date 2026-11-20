@@ -40,7 +40,7 @@ DKMS package that rebuilds itself on every kernel update.
   switchable live from the header swatches
 - 🎮 **Dedicated GPU panel** — live RTX dGPU readout (temp, power, clock,
   utilization, VRAM), a list of which processes are actually using it,
-  one-click **launch on the dGPU** (`frostbyte-gpu-run`), and a park toggle
+  one-click **launch on the dGPU** (`frostbyte-gpu-run`)
 - 🔄 **Survives kernel updates** — DKMS rebuilds the driver automatically
 
 ## How it works
@@ -163,7 +163,6 @@ On dual-GPU Nitro models (Intel iGPU + RTX dGPU), FrostByte includes a
   when a CUDA app (e.g. a local LLM) claims it.
 - **▶ Launch on RTX 3050** — run any app/game on the dGPU via PRIME render
   offload. From a terminal: `frostbyte-gpu-run <command>`.
-- **Park dGPU** — drop persistence mode so the driver can unload when idle.
 
 ### Keeping the machine cool
 

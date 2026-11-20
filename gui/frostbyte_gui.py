@@ -21,7 +21,6 @@
 import math
 import os
 import shlex
-import subprocess
 import sys
 from collections import deque
 
@@ -402,9 +401,9 @@ class Sparkline(QWidget):
         self.edge = theme["edge"]
         self.muted = theme["muted"]
         self.series = [deque(maxlen=60) for _ in colors]
-        self.setMinimumHeight(110)
+        self.setFixedHeight(180)
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
-                           QSizePolicy.Policy.Expanding)
+                           QSizePolicy.Policy.Fixed)
 
     def set_theme(self, theme):
         self.colors = [theme["accent"], theme["accent2"]]
@@ -798,7 +797,7 @@ class MainWindow(QMainWindow):
                                theme=self.theme)
         gl.addWidget(self.graph)
         self._frames.append(gframe)
-        lay.addWidget(gframe, 1)
+        lay.addWidget(gframe)
 
         # Dedicated GPU monitor + launch controls
         ggframe = AngledFrame(self.theme)
@@ -831,13 +830,7 @@ class MainWindow(QMainWindow):
         gbtns = QHBoxLayout()
         self.gpu_launch_btn = QPushButton("▶ Launch on RTX 3050…")
         self.gpu_launch_btn.clicked.connect(self._gpu_launch)
-        self.gpu_park_btn = QPushButton("Park dGPU (persistence off)")
-        self.gpu_park_btn.setToolTip(
-            "Drop persistence mode so the driver can unload when idle. "
-            "The full power-gate is the runtime-PM modprobe option (see README).")
-        self.gpu_park_btn.clicked.connect(self._gpu_park)
         gbtns.addWidget(self.gpu_launch_btn)
-        gbtns.addWidget(self.gpu_park_btn)
         gbtns.addStretch(1)
         ggl.addLayout(gbtns)
         self._frames.append(ggframe)
@@ -916,14 +909,6 @@ class MainWindow(QMainWindow):
         self.adv_panel.setVisible(checked)
         self.adv_btn.setText(("▾  " if checked else "▸  ") +
                              "ADVANCED — fan curves, battery && extras")
-        # make room for the panel (and give it back) so the gauges keep
-        # their shape instead of being squeezed by the layout
-        dh = self.adv_panel.sizeHint().height() + 8
-        if checked:
-            self.resize(self.width(), self.height() + dh)
-        else:
-            self.resize(self.width(), max(self.minimumHeight(),
-                                          self.height() - dh))
 
     def _build_tray(self):
         self.tray = QSystemTrayIcon(self)
@@ -1044,10 +1029,8 @@ class MainWindow(QMainWindow):
                 v.setText("—")
             self.gpu_procs.setText("nvidia-smi unavailable")
             self.gpu_launch_btn.setEnabled(False)
-            self.gpu_park_btn.setEnabled(False)
             return
         self.gpu_launch_btn.setEnabled(True)
-        self.gpu_park_btn.setEnabled(True)
         name = st.get("name", "NVIDIA GPU").replace("NVIDIA GeForce ", "")
         self.gpu_title.setText(f"DEDICATED GPU — {name.upper()}")
 
@@ -1122,19 +1105,6 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"launched on RTX 3050: {argv[0]}")
         except OSError as exc:
             self.statusBar().showMessage(f"launch failed: {exc}")
-
-    def _gpu_park(self):
-        # Best-effort runtime park: drop persistence so the driver can unload
-        # when idle. Needs privileges (pkexec will prompt). The full power-gate
-        # is the NVreg_DynamicPowerManagement modprobe option + reboot.
-        try:
-            subprocess.Popen(
-                ["pkexec", "nvidia-smi", "--persistence-mode=0"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            self.statusBar().showMessage(
-                "park request sent (may prompt for your password)")
-        except OSError as exc:
-            self.statusBar().showMessage(f"park failed: {exc}")
 
 
 def main(theme=None):
