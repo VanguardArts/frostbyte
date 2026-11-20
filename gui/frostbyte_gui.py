@@ -577,6 +577,7 @@ class CurveEditor(QFrame):
         self.table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().setVisible(False)
+        self.table.setMinimumHeight(230)
         lay.addWidget(self.table)
         btn = QPushButton("Apply curve")
         btn.clicked.connect(self._apply)
