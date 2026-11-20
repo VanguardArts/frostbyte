@@ -214,3 +214,8 @@ methods (see credits), **use at your own risk**.
 FrostByte is free software under the **GNU GPL v3 or later** — see
 [LICENSE](LICENSE). The vendored driver keeps its own license
 (see [driver/acer-wmi-linuwu](driver/acer-wmi-linuwu)).
+
+## Vanguard Arts
+
+- **Website:** https://vanguardarts.vip/
+- **Support / contact:** [https://vanguardarts.vip/contact](https://vanguardarts.vip/contact) (contact form)
