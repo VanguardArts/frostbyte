@@ -14,12 +14,12 @@ jobs:
   deb:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build Debian package
         run: |
           ./packaging/build-deb.sh
           ls -la dist/*.deb
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: frostbyte-deb
           path: dist/*.deb
@@ -27,10 +27,10 @@ jobs:
   rpm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build RPM in Fedora container
         run: ./packaging/build-rpm.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: frostbyte-rpm
           path: dist/*.rpm
@@ -38,10 +38,10 @@ jobs:
   arch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build Arch package in Arch container
         run: ./packaging/build-pkg.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: frostbyte-arch
           path: dist/*.pkg.tar.*
@@ -49,10 +49,10 @@ jobs:
   tarball:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Source tarball
         run: make tarball
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: frostbyte-tarball
           path: dist/*.tar.gz
@@ -61,10 +61,10 @@ jobs:
     needs: [deb, rpm, arch, tarball]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: artifacts
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: artifacts/*
