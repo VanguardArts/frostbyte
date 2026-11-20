@@ -1,6 +1,6 @@
 pkgbase = frostbyte
 	pkgdesc = NitroSense/PredatorSense-style fan & thermal control for Acer Nitro/Predator laptops
-	pkgver = 1.6.0
+	pkgver = 1.6.1
 	pkgrel = 1
 	url = https://github.com/VanguardArts/frostbyte
 	install = frostbyte.install
@@ -11,7 +11,7 @@ pkgbase = frostbyte
 	depends = kmod
 	depends = python
 	depends = linux-headers
-	source = frostbyte-1.6.0.tar.gz::https://github.com/VanguardArts/frostbyte/archive/refs/tags/v1.6.0.tar.gz
+	source = frostbyte-1.6.1.tar.gz::https://github.com/VanguardArts/frostbyte/archive/refs/tags/v1.6.1.tar.gz
 	sha256sums = SKIP
 
 pkgname = frostbyte

@@ -39,7 +39,7 @@ from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFrame,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit,
-    QMainWindow, QMenu, QMessageBox, QPushButton, QSizePolicy, QSlider,
+    QMainWindow, QMenu, QMessageBox, QPushButton, QScrollArea, QSizePolicy, QSlider,
     QSpinBox, QSystemTrayIcon, QTableWidget, QTableWidgetItem, QToolButton,
     QVBoxLayout, QWidget,
 )
@@ -616,7 +616,7 @@ class MainWindow(QMainWindow):
         self.theme = THEMES[self.theme_key]
         self.setWindowTitle("FrostByte")
         self.resize(1000, 800)
-        self.setMinimumSize(920, 720)
+        self.setMinimumSize(920, 520)
         self.bridge = DaemonBridge()
         self.bridge.status.connect(self.on_status)
         self.bridge.lost.connect(self.on_lost)
@@ -690,7 +690,6 @@ class MainWindow(QMainWindow):
     def _build_ui(self):
         self._frames = []
         root = QWidget()
-        self.setCentralWidget(root)
         lay = QVBoxLayout(root)
 
         # Header
@@ -901,6 +900,15 @@ class MainWindow(QMainWindow):
         adv.addLayout(crit)
         self.adv_panel.hide()
         lay.addWidget(self.adv_panel)
+
+        # Wrap the whole dashboard in a scroll area so it pages vertically
+        # instead of squishing/overlapping when the window is short or maximised.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(root)
+        self.setCentralWidget(scroll)
 
         self.statusBar().showMessage("connecting to daemon…")
 
