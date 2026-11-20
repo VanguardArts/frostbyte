@@ -218,4 +218,4 @@ FrostByte is free software under the **GNU GPL v3 or later** — see
 ## Vanguard Arts
 
 - **Website:** https://vanguardarts.vip/
-- **Support / contact:** [https://vanguardarts.vip/contact](https://vanguardarts.vip/contact) (contact form)
+- **Support:** [https://vanguardarts.vip/contact](https://vanguardarts.vip/contact)
