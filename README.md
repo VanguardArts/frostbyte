@@ -78,7 +78,13 @@ Prebuilt packages for the major distro families are attached to every
 | Fedora / RHEL / Bazzite / Nobara | `.rpm` | `sudo dnf install ./frostbyte-*.rpm` |
 | openSUSE | `.rpm` | `sudo zypper install ./frostbyte-*.rpm` |
 | Arch / EndeavourOS / Manjaro | `.pkg.tar.zst` | `sudo pacman -U ./frostbyte-*.pkg.tar.zst` |
+| NixOS / Nix | flake | `nix build github:VanguardArts/frostbyte` (user-space tooling; see note) |
 | Anything systemd-based | source tarball | `sudo ./install.sh` |
+
+> **Note:** FrostByte ships a DKMS kernel driver, so Flatpak and AppImage (which
+> run sandboxed / without root) are not applicable. The Nix flake packages the
+> user-space tooling (GUI, daemon, CLI, keyd); the kernel driver must be built
+> for the running NixOS kernel separately.
 
 A GitHub Actions workflow builds the `.deb`, `.rpm` and Arch package natively
 on their own distros and attaches them on every tag, so each package is
