@@ -168,7 +168,7 @@ QSpinBox::down-arrow:hover {{ border-top-color: {t['accent']}; }}
 QToolButton#adv {{ color: {t['muted']}; border: none; font-weight: 700;
     letter-spacing: 1px; padding: 8px 4px; text-align: left; }}
 QToolButton#adv:hover {{ color: {t['accent']}; }}
-QLabel#gpuval {{ font-size: 17px; font-weight: 700; color: {t['accent']}; }}
+QLabel#gpuval {{ font-size: 20px; font-weight: 700; color: {t['accent']}; }}
 """
 
 STYLESHEET = make_stylesheet(THEMES[DEFAULT_THEME])
@@ -804,10 +804,12 @@ class MainWindow(QMainWindow):
         ggframe = AngledFrame(self.theme)
         ggl = QVBoxLayout(ggframe)
         ggl.setContentsMargins(14, 10, 14, 12)
+        ggl.setSpacing(14)
         self.gpu_title = QLabel("DEDICATED GPU")
         self.gpu_title.setObjectName("title")
         ggl.addWidget(self.gpu_title)
         gstats = QHBoxLayout()
+        gstats.setSpacing(28)
         self._gpu_vals = {}
         for key, label in (("temperature.gpu", "TEMP °C"),
                            ("power.draw", "POWER W"),
@@ -815,6 +817,7 @@ class MainWindow(QMainWindow):
                            ("utilization.gpu", "UTIL %"),
                            ("memory.used", "VRAM MB")):
             box = QVBoxLayout()
+            box.setSpacing(6)
             v = QLabel("—")
             v.setObjectName("gpuval")
             l = QLabel(label)
