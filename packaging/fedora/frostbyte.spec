@@ -64,6 +64,11 @@ sed -i 's|/opt/frostbyte|/usr/lib/frostbyte|g' \
 
 install -m644 desktop/frostbyte.desktop %{buildroot}/usr/share/applications/
 install -m644 gui/frostbyte.svg         %{buildroot}/usr/share/pixmaps/
+install -m644 gui/frostbyte.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/frostbyte.svg
+for sz in 16 24 32 48 64 96 128 256 512; do
+    install -Dm644 packaging/icons/hicolor/${sz}x${sz}/apps/frostbyte.png \
+        %{buildroot}/usr/share/icons/hicolor/${sz}x${sz}/apps/frostbyte.png
+done
 install -m644 etc/frostbyte.conf        %{buildroot}/usr/share/frostbyte/
 
 cat > %{buildroot}/usr/bin/frostbyte <<'WRAP_EOF'
@@ -126,6 +131,16 @@ fi
 /usr/lib/systemd/system/frostbyte-keyd.service
 /usr/share/applications/frostbyte.desktop
 /usr/share/pixmaps/frostbyte.svg
+/usr/share/icons/hicolor/scalable/apps/frostbyte.svg
+/usr/share/icons/hicolor/16x16/apps/frostbyte.png
+/usr/share/icons/hicolor/24x24/apps/frostbyte.png
+/usr/share/icons/hicolor/32x32/apps/frostbyte.png
+/usr/share/icons/hicolor/48x48/apps/frostbyte.png
+/usr/share/icons/hicolor/64x64/apps/frostbyte.png
+/usr/share/icons/hicolor/96x96/apps/frostbyte.png
+/usr/share/icons/hicolor/128x128/apps/frostbyte.png
+/usr/share/icons/hicolor/256x256/apps/frostbyte.png
+/usr/share/icons/hicolor/512x512/apps/frostbyte.png
 /usr/share/frostbyte/frostbyte.conf
 /usr/src/%{drv_name}-%{drv_ver}
 

@@ -158,6 +158,12 @@ systemctl enable --now frostbyte-keyd.service
 ok "daemon + NitroSense key handler enabled and started"
 
 install -Dm644 "$here/gui/frostbyte.svg" /usr/share/pixmaps/frostbyte.svg
+install -Dm644 "$here/gui/frostbyte.svg" \
+    /usr/share/icons/hicolor/scalable/apps/frostbyte.svg
+for sz in 16 24 32 48 64 96 128 256 512; do
+    install -Dm644 "$here/packaging/icons/hicolor/${sz}x${sz}/apps/frostbyte.png" \
+        /usr/share/icons/hicolor/${sz}x${sz}/apps/frostbyte.png
+done
 install -Dm644 "$here/desktop/frostbyte.desktop" \
     /usr/share/applications/frostbyte.desktop
 ok "desktop entry installed"
