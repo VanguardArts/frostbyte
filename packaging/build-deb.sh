@@ -60,7 +60,7 @@ sed -i 's|/opt/frostbyte|/usr/lib/frostbyte|g' \
     "$STAGE/usr/lib/systemd/system/"frostbyte-*.service
 install -m644 "$here/desktop/frostbyte.desktop" "$STAGE/usr/share/applications/"
 install -m644 "$here/gui/frostbyte.svg"         "$STAGE/usr/share/pixmaps/"
-install -m644 "$here/gui/frostbyte.svg" "$STAGE/usr/share/icons/hicolor/scalable/apps/frostbyte.svg"
+install -Dm644 "$here/gui/frostbyte.svg" "$STAGE/usr/share/icons/hicolor/scalable/apps/frostbyte.svg"
 for sz in 16 24 32 48 64 96 128 256 512; do
     install -Dm644 "$here/packaging/icons/hicolor/${sz}x${sz}/apps/frostbyte.png" \
         "$STAGE/usr/share/icons/hicolor/${sz}x${sz}/apps/frostbyte.png"

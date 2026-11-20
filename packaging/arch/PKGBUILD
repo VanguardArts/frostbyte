@@ -47,7 +47,7 @@ package() {
                  "$pkgdir/usr/share/frostbyte"
   install -m644 desktop/frostbyte.desktop "$pkgdir/usr/share/applications/"
   install -m644 gui/frostbyte.svg         "$pkgdir/usr/share/pixmaps/"
-  install -m644 gui/frostbyte.svg          "$pkgdir/usr/share/icons/hicolor/scalable/apps/frostbyte.svg"
+  install -Dm644 gui/frostbyte.svg          "$pkgdir/usr/share/icons/hicolor/scalable/apps/frostbyte.svg"
     for sz in 16 24 32 48 64 96 128 256 512; do
       install -Dm644 "packaging/icons/hicolor/${sz}x${sz}/apps/frostbyte.png" \
         "$pkgdir/usr/share/icons/hicolor/${sz}x${sz}/apps/frostbyte.png"

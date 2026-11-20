@@ -6,7 +6,7 @@
 %global drv_ver  7.3.0.1
 
 Name:           frostbyte
-Version: 1.5.2
+Version: 1.6.1
 Release:        1%{?dist}
 Summary:        NitroSense/PredatorSense-style fan & thermal control for Acer laptops
 
@@ -64,7 +64,7 @@ sed -i 's|/opt/frostbyte|/usr/lib/frostbyte|g' \
 
 install -m644 desktop/frostbyte.desktop %{buildroot}/usr/share/applications/
 install -m644 gui/frostbyte.svg         %{buildroot}/usr/share/pixmaps/
-install -m644 gui/frostbyte.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/frostbyte.svg
+install -Dm644 gui/frostbyte.svg %{buildroot}/usr/share/icons/hicolor/scalable/apps/frostbyte.svg
 for sz in 16 24 32 48 64 96 128 256 512; do
     install -Dm644 packaging/icons/hicolor/${sz}x${sz}/apps/frostbyte.png \
         %{buildroot}/usr/share/icons/hicolor/${sz}x${sz}/apps/frostbyte.png
