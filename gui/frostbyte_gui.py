@@ -130,6 +130,13 @@ QPushButton#tile:checked {{ border: 2px solid {t['accent']};
     background: {_rgba(t['accent'], 34)}; color: {t['text']}; }}
 QPushButton#danger:checked {{ background: {t['danger']}; color: white;
     border-color: {t['danger']}; }}
+QPushButton#stepper {{ background: #1c2230; border: 1px solid {t['edge']};
+    border-radius: 8px; padding: 0; font-size: 16px; font-weight: 700;
+    color: {t['text']}; }}
+QPushButton#stepper:hover {{ border-color: {t['accent']};
+    color: {t['accent']}; }}
+QPushButton#stepper:pressed {{ background: {t['accent']};
+    color: #04121c; }}
 QSlider::groove:horizontal {{ height: 6px; background: #232a36;
     border-radius: 3px; }}
 QSlider::handle:horizontal {{ width: 18px; height: 18px; margin: -7px 0;
@@ -609,6 +616,56 @@ class CurveEditor(QFrame):
                                 "A curve needs at least two points.")
 
 
+class ThresholdControl(QWidget):
+    """Safety-threshold stepper: a name label, − and + buttons flanking a
+    numeric-only spin field, with the °C unit kept outside the input."""
+
+    valueChanged = pyqtSignal(int)
+
+    def __init__(self, name, minimum, maximum, default, parent=None):
+        super().__init__(parent)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+
+        namelab = QLabel(name)
+        namelab.setObjectName("muted")
+
+        minus = QPushButton("−")
+        minus.setObjectName("stepper")
+        minus.setFixedSize(34, 34)
+        plus = QPushButton("+")
+        plus.setObjectName("stepper")
+        plus.setFixedSize(34, 34)
+
+        self.spin = QSpinBox()
+        self.spin.setRange(minimum, maximum)
+        self.spin.setValue(default)
+        self.spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons)
+        self.spin.setKeyboardTracking(False)
+        self.spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.spin.setFixedSize(56, 34)
+
+        unit = QLabel("°C")
+        unit.setObjectName("muted")
+
+        minus.clicked.connect(lambda: self.spin.stepBy(-1))
+        plus.clicked.connect(lambda: self.spin.stepBy(1))
+        self.spin.valueChanged.connect(self.valueChanged.emit)
+
+        lay.addWidget(namelab)
+        lay.addWidget(minus)
+        lay.addWidget(self.spin)
+        lay.addWidget(plus)
+        lay.addWidget(unit)
+
+    def value(self):
+        return self.spin.value()
+
+    def setValue(self, value):
+        self.spin.setValue(value)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, theme=None):
         super().__init__()
@@ -879,17 +936,9 @@ class MainWindow(QMainWindow):
         clab = QLabel("Safety override — fans to 100% above (sustained ~6s):")
         clab.setObjectName("muted")
         crit.addWidget(clab)
-        self.cpu_crit = QSpinBox()
-        self.cpu_crit.setRange(85, 105)
-        self.cpu_crit.setPrefix("CPU ")
-        self.cpu_crit.setSuffix(" °C")
-        self.cpu_crit.setKeyboardTracking(False)
+        self.cpu_crit = ThresholdControl("CPU", 85, 105, 95)
         self.cpu_crit.valueChanged.connect(self._crit_changed)
-        self.gpu_crit = QSpinBox()
-        self.gpu_crit.setRange(75, 100)
-        self.gpu_crit.setPrefix("GPU ")
-        self.gpu_crit.setSuffix(" °C")
-        self.gpu_crit.setKeyboardTracking(False)
+        self.gpu_crit = ThresholdControl("GPU", 75, 100, 88)
         self.gpu_crit.valueChanged.connect(self._crit_changed)
         crit.addWidget(self.cpu_crit)
         crit.addWidget(self.gpu_crit)
