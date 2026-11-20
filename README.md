@@ -1,7 +1,7 @@
 # ❄ FrostByte
 
 [![License: GPL v3+](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen)](https://github.com/VanguardArts/frostbyte/releases)
+[![Release](https://img.shields.io/badge/release-v1.7.0-brightgreen)](https://github.com/VanguardArts/frostbyte/releases)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey)](https://github.com/VanguardArts/frostbyte)
 [![Driver: DKMS](https://img.shields.io/badge/driver-DKMS-orange)](#how-it-works)
 

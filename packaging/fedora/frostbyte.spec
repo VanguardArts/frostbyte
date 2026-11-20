@@ -6,7 +6,7 @@
 %global drv_ver  7.3.0.1
 
 Name:           frostbyte
-Version: 1.6.1
+Version: 1.7.0
 Release:        1%{?dist}
 Summary:        NitroSense/PredatorSense-style fan & thermal control for Acer laptops
 
@@ -145,5 +145,6 @@ fi
 /usr/src/%{drv_name}-%{drv_ver}
 
 %changelog
+* Sat Nov 21 2026 Vanguard Arts SRL <https://vanguardarts.vip/> - 1.7.0-1
 * Wed Nov 18 2026 FrostByte Contributors <VanguardArts@users.noreply.github.com> - 1.5.2-1
 - Initial RPM packaging; mirrors the Debian package file layout.
